@@ -14,8 +14,9 @@ import {
   Users,
 } from "lucide-react"
 
+import { ATM } from "@/types"
 interface ATMHoverCardProps {
-  atm: any | null
+  atm: Partial<ATM> & { marketShare?: number; brand?: string } | null
   position: { x: number; y: number }
   visible: boolean
 }
@@ -96,11 +97,11 @@ export default function ATMHoverCard({ atm, position, visible }: ATMHoverCardPro
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-3">
               <div
-                className="w-4 h-4 rounded-full border-2 border-white shadow-sm"
+                className="w-4 h-4 rounded-full border-2 border-white shadow-sm flex-shrink-0"
                 style={{ backgroundColor: getPerformanceColor(performanceScore) }}
               />
               <div>
-                <h3 className="font-semibold text-sm text-gray-900 leading-tight">{atm.name}</h3>
+                <h3 className="font-semibold text-sm text-gray-900 leading-tight">{atm.name || atm.id}</h3>
                 <div className="flex items-center gap-2 mt-1">
                   {atm.bank_name || atm.brand ? (
                     <Badge variant="outline" className={`text-xs ${getBankColor(atm.bank_name)}`}>

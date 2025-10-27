@@ -24,6 +24,7 @@ import {
   TrendingUp,
 } from "lucide-react"
 import { useState } from "react"
+import { ATM } from "../types"
 
 interface LayerControlsProps {
   activeLayers: {
@@ -33,39 +34,9 @@ interface LayerControlsProps {
     coverage: boolean
   }
   onLayerToggle: (layer: keyof LayerControlsProps["activeLayers"], active: boolean) => void
-  selectedATM?: {
-    id: number | string
-    name: string
-    brand?: string
-    bank_name?: string
-    performance?: number
-    monthly_volume?: number
-    dailyTransactions?: number
-    uptime?: string
-    cashLevel?: string
-    networkStatus?: string
-    lastMaintenance?: string
-    address?: string
-    type?: string
-    roi?: number
-    installation_type?: "fixed" | "portable"
-    branch_location?: string
-    services?: string[]
-    lat?: number
-    lng?: number
-  } | null
+  selectedATM?: ATM | null
 }
-
-export default function LayerControls({ activeLayers, onLayerToggle, selectedATM }: LayerControlsProps) {
-  const [layerOpacity, setLayerOpacity] = useState({
-    population: 70,
-    competitors: 80,
-    pois: 90,
-    coverage: 60,
-  })
-  const [expandedLayers, setExpandedLayers] = useState<string[]>(["population"])
-
-  const layers = [
+const layersConfig = [
     {
       key: "population" as const,
       label: "Densité Population",
@@ -131,6 +102,17 @@ export default function LayerControls({ activeLayers, onLayerToggle, selectedATM
       },
     },
   ]
+
+export default function LayerControls({ activeLayers, onLayerToggle, selectedATM }: LayerControlsProps) {
+  const [layerOpacity, setLayerOpacity] = useState({
+    population: 70,
+    competitors: 80,
+    pois: 90,
+    coverage: 60,
+  })
+  const [expandedLayers, setExpandedLayers] = useState<string[]>(["population"])
+
+  const layers = layersConfig
 
   const toggleLayerExpansion = (layerKey: string) => {
     setExpandedLayers((prev) =>
@@ -199,13 +181,13 @@ export default function LayerControls({ activeLayers, onLayerToggle, selectedATM
                   }}
                 />
                 <div>
-                  <h3 className="font-semibold text-sm text-foreground">{selectedATM.name}</h3>
+                  <h3 className="font-semibold text-sm text-foreground">{selectedATM.name || selectedATM.id}</h3>
                   <div className="flex items-center gap-2 mt-1">
                     <Badge
                       variant="outline"
-                      className={`text-xs ${getBankColor(selectedATM.bank_name || selectedATM.brand)}`}
+                      className={`text-xs ${getBankColor(selectedATM.bank_name)}`}
                     >
-                      {selectedATM.bank_name || selectedATM.brand}
+                      {selectedATM.bank_name}
                     </Badge>
                     {selectedATM.installation_type && (
                       <Badge variant="outline" className="text-xs bg-slate-100 text-slate-700">
@@ -260,7 +242,7 @@ export default function LayerControls({ activeLayers, onLayerToggle, selectedATM
             </div>
 
             {/* Location Information */}
-            {(selectedATM.address || selectedATM.branch_location || (selectedATM.lat && selectedATM.lng)) && (
+            {(selectedATM.address || selectedATM.branch_location || (selectedATM.latitude && selectedATM.longitude)) && (
               <div className="p-3 bg-muted/50 rounded-lg">
                 <div className="flex items-start gap-2">
                   <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
@@ -272,9 +254,9 @@ export default function LayerControls({ activeLayers, onLayerToggle, selectedATM
                       <p className="text-sm font-medium text-foreground">{selectedATM.branch_location}</p>
                     )}
                     {selectedATM.address && <p className="text-sm text-muted-foreground">{selectedATM.address}</p>}
-                    {selectedATM.lat && selectedATM.lng && (
+                    {selectedATM.latitude && selectedATM.longitude && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        {selectedATM.lat.toFixed(4)}°N, {selectedATM.lng.toFixed(4)}°W
+                        {selectedATM.latitude.toFixed(4)}°N, {selectedATM.longitude.toFixed(4)}°W
                       </p>
                     )}
                   </div>
@@ -296,13 +278,13 @@ export default function LayerControls({ activeLayers, onLayerToggle, selectedATM
                 </div>
               )}
 
-              {selectedATM.dailyTransactions && (
+              {selectedATM.monthly_volume && (
                 <div className="p-3 bg-green-50 rounded-lg">
                   <div className="flex items-center gap-2">
                     <Target className="w-4 h-4 text-green-600" />
                     <div>
                       <p className="text-xs text-green-600 font-medium">Quotidien</p>
-                      <p className="text-sm font-bold text-green-800">{selectedATM.dailyTransactions}/jour</p>
+                      <p className="text-sm font-bold text-green-800">{Math.round(selectedATM.monthly_volume / 30)}/jour</p>
                     </div>
                   </div>
                 </div>
@@ -358,7 +340,7 @@ export default function LayerControls({ activeLayers, onLayerToggle, selectedATM
                 </div>
               )}
 
-              {selectedATM.networkStatus && (
+              {selectedATM.status && (
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-muted-foreground flex items-center gap-1">
                     <Settings className="w-3 h-3" />
@@ -367,14 +349,14 @@ export default function LayerControls({ activeLayers, onLayerToggle, selectedATM
                   <Badge
                     variant="outline"
                     className={`text-xs ${
-                      selectedATM.networkStatus === "Connecté"
+                      selectedATM.status === "active"
                         ? "bg-green-100 text-green-800 border-green-200"
-                        : selectedATM.networkStatus === "Instable"
+                        : selectedATM.status === "maintenance"
                           ? "bg-yellow-100 text-yellow-800 border-yellow-200"
                           : "bg-red-100 text-red-800 border-red-200"
                     }`}
                   >
-                    {selectedATM.networkStatus}
+                    {selectedATM.status}
                   </Badge>
                 </div>
               )}
@@ -387,7 +369,7 @@ export default function LayerControls({ activeLayers, onLayerToggle, selectedATM
                   Services disponibles
                 </Label>
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {selectedATM.services.map((service) => (
+                  {selectedATM.services.map((service: string) => (
                     <Badge key={service} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
                       {service === "retrait"
                         ? "Retrait"

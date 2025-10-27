@@ -39,7 +39,7 @@ interface DataSource {
   name: string
   type: string
   last_update: string
-  status: "active" | "inactive" | "error"
+  status: "active" | "inactive" | "error" | "warning"
   records: number
 }
 
@@ -104,21 +104,6 @@ export default function AdminPanel() {
       last_training: new Date().toISOString().split("T")[0],
     }))
     console.log("[v0] Model retraining completed")
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "healthy":
-      case "active":
-        return "text-green-600"
-      case "warning":
-        return "text-yellow-600"
-      case "error":
-      case "inactive":
-        return "text-red-600"
-      default:
-        return "text-muted-foreground"
-    }
   }
 
   const getStatusBadge = (status: string) => {

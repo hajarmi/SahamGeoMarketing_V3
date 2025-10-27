@@ -1,13 +1,16 @@
+const disableStrictChecks = (process.env.NEXT_DISABLE_STRICT ?? "").toLowerCase() === "true"
+const allowUnoptimizedImages = (process.env.NEXT_IMAGE_UNOPTIMIZED ?? "").toLowerCase() === "true"
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: disableStrictChecks,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: disableStrictChecks,
   },
   images: {
-    unoptimized: true,
+    unoptimized: allowUnoptimizedImages,
   },
   productionBrowserSourceMaps: true,
   webpack: (config, { isServer }) => {

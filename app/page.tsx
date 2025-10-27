@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect, useReducer } from "react"
+import type { KeyboardEvent } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -12,6 +13,7 @@ import ScoringDashboard from "@/components/scoring-dashboard"
 import EnhancedLayerControls from "@/components/enhanced-layer-controls"
 import LocationAnalyzer from "@/components/location-analyzer"
 import ScenarioSimulator from "@/components/scenario-simulator"
+import { ATM } from "@/types"
 
 export default function HomePage() {
   const [selectedLocation, setSelectedLocation] = useState<{
@@ -27,8 +29,36 @@ export default function HomePage() {
   })
   const [simulationMode, setSimulationMode] = useState(false)
   const [activeTab, setActiveTab] = useState("map")
-  const [selectedATM, setSelectedATM] = useState<any | null>(null)
+  const [selectedATM, setSelectedATM] = useState<ATM | null>(null)
   const [refreshKey, forceRefresh] = useReducer((v) => v + 1, 0)
+  const [atms, setAtms] = useState<ATM[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>, tab: string) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault()
+      setActiveTab(tab)
+    }
+  }
+
+  useEffect(() => {
+    const fetchATMs = async () => {
+      setIsLoading(true)
+      try {
+        const response = await fetch("/api/atms")
+        if (!response.ok) throw new Error("Failed to fetch")
+        const data = await response.json()
+        setAtms(data.atms)
+      } catch (error) {
+        console.error("Error fetching ATMs:", error)
+        setAtms([]) // Clear data on error
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchATMs()
+  }, [refreshKey])
 
   useEffect(() => {
     const handleAddressSearchResult = (event: CustomEvent) => {
@@ -50,15 +80,15 @@ export default function HomePage() {
     // Here you would update the map visualization in real-time
   }, [])
 
-  const handleATMSelect = useCallback((atm: any) => {
+  const handleATMSelect = useCallback((atm: ATM) => {
     console.log("[v0] ATM selected:", atm)
     setSelectedATM(atm)
+    setActiveTab("map")
     // Center the map on the selected ATM
     if (atm.latitude && atm.longitude) {
       setSelectedLocation({
         lng: atm.longitude,
         lat: atm.latitude,
-        address: atm.branch_location || atm.name,
       })
     }
   }, [])
@@ -113,13 +143,19 @@ export default function HomePage() {
               potentiel, analyse de cannibalisation et recommandations explicables.
             </p>
 
+
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <Card
-                className="border-primary/20 card-hover cursor-pointer transition-all hover:shadow-lg hover:scale-105"
+                role="button"
+                tabIndex={0}
+                aria-label="Afficher le scoring IA"
+                className="border-primary/20 card-hover cursor-pointer overflow-hidden transition-all hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 onClick={() => setActiveTab("scoring")}
+                onKeyDown={(event) => handleCardKeyDown(event, "scoring")}
               >
-                <CardContent className="p-6">
-                  <div className="flex items-center space-x-3 mb-3">
+                <div className="p-6 transition-transform duration-300 ease-in-out hover:scale-105">
+                  <div className="flex items-center space-x-3 mb-3 ">
                     <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
                       <BarChart3 className="w-5 h-5 text-primary" />
                     </div>
@@ -128,32 +164,19 @@ export default function HomePage() {
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     Calcul automatique basé sur la densité, la concurrence et les flux
                   </p>
-                </CardContent>
+                </div>
               </Card>
 
               <Card
-                className="border-secondary/20 card-hover cursor-pointer transition-all hover:shadow-lg hover:scale-105"
-                onClick={() => setActiveTab("layers")}
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="w-10 h-10 bg-secondary/10 rounded-lg flex items-center justify-center">
-                      <Layers className="w-5 h-5 text-secondary" />
-                    </div>
-                    <h3 className="font-semibold text-foreground">Couches de Données</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Population, concurrence, POI et zones de chalandise
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card
-                className="border-accent/20 card-hover cursor-pointer transition-all hover:shadow-lg hover:scale-105"
+                role="button"
+                tabIndex={0}
+                aria-label="Afficher les explications IA"
+                className="border-accent/20 card-hover cursor-pointer overflow-hidden transition-all hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 onClick={() => setActiveTab("reason-codes")}
+                onKeyDown={(event) => handleCardKeyDown(event, "reason-codes")}
               >
-                <CardContent className="p-6">
-                  <div className="flex items-center space-x-3 mb-3">
+                <div className="p-6 transition-transform duration-300 ease-in-out hover:scale-105">
+                  <div className="flex items-center space-x-3 mb-3 ">
                     <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center">
                       <Brain className="w-5 h-5 text-accent" />
                     </div>
@@ -162,15 +185,19 @@ export default function HomePage() {
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     Explications claires des recommandations IA
                   </p>
-                </CardContent>
+                </div>
               </Card>
 
               <Card
-                className="border-success/20 card-hover cursor-pointer transition-all hover:shadow-lg hover:scale-105"
+                role="button"
+                tabIndex={0}
+                aria-label="Accéder à la simulation ROI"
+                className="border-success/20 card-hover cursor-pointer overflow-hidden transition-all hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-success"
                 onClick={() => setActiveTab("roi-simulation")}
+                onKeyDown={(event) => handleCardKeyDown(event, "roi-simulation")}
               >
-                <CardContent className="p-6">
-                  <div className="flex items-center space-x-3 mb-3">
+                <div className="p-6 transition-transform duration-300 ease-in-out hover:scale-105">
+                  <div className="flex items-center space-x-3 mb-3 ">
                     <div className="w-10 h-10 bg-success/10 rounded-lg flex items-center justify-center">
                       <Calculator className="w-5 h-5 text-success" />
                     </div>
@@ -179,7 +206,7 @@ export default function HomePage() {
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     Projections financières et période de retour
                   </p>
-                </CardContent>
+                </div>
               </Card>
             </div>
           </div>
@@ -227,6 +254,8 @@ export default function HomePage() {
                     selectedATM={selectedATM}
                     onATMSelect={handleATMSelect}
                     refresh={refreshKey}
+                    atms={atms}
+                    loading={isLoading}
                   />
                 </div>
               </div>
@@ -247,11 +276,14 @@ export default function HomePage() {
                         </CardDescription>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Button variant="outline" size="sm" onClick={forceRefresh}>
+                        <Button variant="outline" size="sm" onClick={forceRefresh} aria-label="Refresh map data">
                           Actualiser les données
                         </Button>
                       </div>
-                      <Badge variant={simulationMode ? "default" : "secondary"}>
+                      <Badge
+                        variant={simulationMode ? "default" : "secondary"}
+                        aria-label={`Current mode: ${simulationMode ? "Simulation" : "Exploration"}`}
+                      >
                         {simulationMode ? "Simulation" : "Exploration"}
                       </Badge>
                     </div>
@@ -263,6 +295,7 @@ export default function HomePage() {
                       onLocationSelect={setSelectedLocation}
                       selectedATM={selectedATM}
                       onATMSelect={handleATMSelect}
+                      atms={atms}
                     />
                   </CardContent>
                 </Card>
@@ -287,6 +320,7 @@ export default function HomePage() {
                       onLocationSelect={setSelectedLocation}
                       selectedATM={selectedATM}
                       onATMSelect={handleATMSelect}
+                      atms={atms}
                     />
                   </CardContent>
                 </Card>
@@ -319,6 +353,7 @@ export default function HomePage() {
                       onLocationSelect={setSelectedLocation}
                       selectedATM={selectedATM}
                       onATMSelect={handleATMSelect}
+                      atms={atms}
                     />
                   </CardContent>
                 </Card>
@@ -340,6 +375,8 @@ export default function HomePage() {
                   selectedATM={selectedATM}
                   refresh={refreshKey}
                   onATMSelect={handleATMSelect}
+                  atms={atms}
+                  loading={isLoading}
                 />
               </div>
               <div className="lg:col-span-3">
@@ -358,6 +395,7 @@ export default function HomePage() {
                       onLocationSelect={setSelectedLocation}
                       selectedATM={selectedATM}
                       onATMSelect={handleATMSelect}
+                      atms={atms}
                     />
                   </CardContent>
                 </Card>
@@ -391,16 +429,6 @@ export default function HomePage() {
             </div>
 
             <div className="space-y-4">
-              <h4 className="font-semibold text-foreground">Fonctionnalités</h4>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>• Carte interactive Leaflet</p>
-                <p>• Scoring IA multicritères</p>
-                <p>• Analyse de cannibalisation</p>
-                <p>• Simulation ROI temps réel</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
               <h4 className="font-semibold text-foreground">Données</h4>
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p>• Densité démographique</p>
@@ -409,26 +437,14 @@ export default function HomePage() {
                 <p>• Zones de chalandise</p>
               </div>
             </div>
-
-            <div className="space-y-4">
-              <h4 className="font-semibold text-foreground">Technologie</h4>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>• Next.js & React</p>
-                <p>• React Leaflet</p>
-                <p>• Moteur IA propriétaire</p>
-                <p>• Interface responsive</p>
-              </div>
-            </div>
           </div>
 
           <div className="border-t mt-8 pt-8 flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} GeoMarketing Pro - The FrontlineUnit - Tous droits réservés
             </div>
-            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-              <span>Version 1.0.0</span>
-              <span>•</span>
-              <span>Developped by teh frontline Unit</span>
+            <div className="text-sm text-muted-foreground">
+              Developed by The Frontline Unit
             </div>
           </div>
         </div>

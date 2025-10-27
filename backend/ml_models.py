@@ -1,19 +1,24 @@
 """
 Saham Bank Geomarketing AI - Machine Learning Models
-Pipeline ML pour l'implantation optimale des ATMs
+ML Pipeline for optimal ATM placement.
 """
 
-import pandas as pd
+import json
+import warnings
+from datetime import datetime
+from typing import List
+
+import joblib
 import numpy as np
+import pandas as pd
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, classification_report
-import joblib
-import json
-from datetime import datetime
-import warnings
 warnings.filterwarnings('ignore')
+
+# Import Pydantic schemas to enforce data contracts
+from schemas import ATMData, LocationData
 
 class ATMLocationPredictor:
     """Modèle de prédiction des volumes et ROI pour les emplacements ATM"""
@@ -122,7 +127,7 @@ class ATMLocationPredictor:
         
         return performance
     
-    def predict_location(self, location_data):
+    def predict_location(self, location: LocationData) -> dict:
         """Prédit le potentiel d'un emplacement"""
         if not self.is_trained:
             print("⚠️ Modèle non entraîné, entraînement automatique...")
@@ -130,16 +135,16 @@ class ATMLocationPredictor:
         
         # Préparation des données
         features = np.array([[
-            location_data.get('population_density', 1000),
-            location_data.get('commercial_poi_count', 10),
-            location_data.get('competitor_atms_500m', 2),
-            location_data.get('foot_traffic_score', 50),
-            location_data.get('income_level', 45000),
-            location_data.get('accessibility_score', 7),
-            location_data.get('parking_availability', 1),
-            location_data.get('public_transport_nearby', 1),
-            location_data.get('business_district', 0),
-            location_data.get('residential_area', 1)
+            location.population_density,
+            location.commercial_poi_count,
+            location.competitor_atms_500m,
+            location.foot_traffic_score,
+            location.income_level,
+            location.accessibility_score,
+            location.parking_availability,
+            location.public_transport_nearby,
+            location.business_district,
+            location.residential_area
         ]])
         
         features_scaled = self.scaler.transform(features)
@@ -153,7 +158,7 @@ class ATMLocationPredictor:
         global_score = min(100, max(0, (volume_pred / 50 + roi_prob * 100) / 2))
         
         # Reason codes (explicabilité)
-        reason_codes = self._generate_reason_codes(location_data, volume_pred, roi_prob)
+        reason_codes = self._generate_reason_codes(location, volume_pred, roi_prob)
         
         return {
             'predicted_volume': float(volume_pred),
@@ -164,33 +169,33 @@ class ATMLocationPredictor:
             'recommendation': 'RECOMMANDÉ' if global_score > 70 else 'À ÉTUDIER' if global_score > 40 else 'NON RECOMMANDÉ'
         }
     
-    def _generate_reason_codes(self, location_data, volume_pred, roi_prob):
+    def _generate_reason_codes(self, location: LocationData, volume_pred: float, roi_prob: float) -> List[str]:
         """Génère les codes de raison pour l'explicabilité"""
         codes = []
         
         # Analyse de la densité
-        density = location_data.get('population_density', 1000)
+        density = location.population_density
         if density > 2000:
             codes.append("RC-101: Densité de population élevée")
         elif density < 500:
             codes.append("RC-102: Densité de population faible")
         
         # Analyse de la concurrence
-        competitors = location_data.get('competitor_atms_500m', 2)
+        competitors = location.competitor_atms_500m
         if competitors > 3:
             codes.append("RC-201: Forte concurrence locale")
         elif competitors == 0:
             codes.append("RC-202: Zone sans concurrence directe")
         
         # Analyse de l'accessibilité
-        accessibility = location_data.get('accessibility_score', 7)
+        accessibility = location.accessibility_score
         if accessibility > 8:
             codes.append("RC-301: Excellente accessibilité")
         elif accessibility < 5:
             codes.append("RC-302: Accessibilité limitée")
         
         # Analyse des POI
-        poi_count = location_data.get('commercial_poi_count', 10)
+        poi_count = location.commercial_poi_count
         if poi_count > 20:
             codes.append("RC-401: Zone commerciale très active")
         elif poi_count < 5:
@@ -213,19 +218,19 @@ class CanibalizationAnalyzer:
     """Analyseur de cannibalisation entre ATMs"""
     
     def __init__(self):
-        self.existing_atms = []
+        self.existing_atms: List[ATMData] = []
     
-    def add_existing_atm(self, atm_data):
+    def add_existing_atm(self, atm: ATMData):
         """Ajoute un ATM existant à l'analyse"""
-        self.existing_atms.append(atm_data)
+        self.existing_atms.append(atm)
     
-    def calculate_canibalization(self, new_location):
+    def calculate_canibalization(self, new_location: LocationData) -> dict:
         """Calcule l'impact de cannibalisation d'un nouvel ATM"""
         if not self.existing_atms:
             return {'canibalization_risk': 0, 'affected_atms': []}
         
-        new_lat = new_location['latitude']
-        new_lon = new_location['longitude']
+        new_lat = new_location.latitude
+        new_lon = new_location.longitude
         
         affected_atms = []
         total_impact = 0
@@ -233,14 +238,14 @@ class CanibalizationAnalyzer:
         for atm in self.existing_atms:
             # Calcul de la distance (approximation)
             distance = np.sqrt(
-                (new_lat - atm['latitude'])**2 + 
-                (new_lon - atm['longitude'])**2
+                (new_lat - atm.latitude)**2 +
+                (new_lon - atm.longitude)**2
             ) * 111  # Conversion en km approximative
             
             if distance < 2:  # Zone d'influence de 2km
                 impact = max(0, (2 - distance) / 2 * 100)  # Impact en %
                 affected_atms.append({
-                    'atm_id': atm.get('id', 'unknown'),
+                    'atm_id': atm.id,
                     'distance_km': round(distance, 2),
                     'impact_percent': round(impact, 1)
                 })
@@ -263,20 +268,20 @@ if __name__ == "__main__":
     performance = predictor.train()
     
     # Test de prédiction
-    test_location = {
-        'population_density': 1500,
-        'commercial_poi_count': 25,
-        'competitor_atms_500m': 1,
-        'foot_traffic_score': 75,
-        'income_level': 55000,
-        'accessibility_score': 8.5,
-        'parking_availability': 1,
-        'public_transport_nearby': 1,
-        'business_district': 1,
-        'residential_area': 0,
-        'latitude': 33.5731,
-        'longitude': -7.5898
-    }
+    test_location = LocationData(
+        latitude=33.5731,
+        longitude=-7.5898,
+        population_density=1500,
+        commercial_poi_count=25,
+        competitor_atms_500m=1,
+        foot_traffic_score=75,
+        income_level=55000,
+        accessibility_score=8.5,
+        parking_availability=1,
+        public_transport_nearby=1,
+        business_district=1,
+        residential_area=0
+    )
     
     prediction = predictor.predict_location(test_location)
     

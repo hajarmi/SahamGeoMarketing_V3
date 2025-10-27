@@ -1,57 +1,24 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { MapPin, Search, Building2, Smartphone, TrendingUp, Filter, X } from "lucide-react"
-
-interface ATMData {
-  id: string
-  name: string
-  latitude: number
-  longitude: number
-  monthly_volume: number
-  status: string
-  city: string
-  region: string
-  bank_name: string
-  installation_type: "fixed" | "portable"
-  branch_location: string
-  services: string[]
-}
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { MapPin, Search, Filter, X, TrendingUp } from "lucide-react"
+import { ATM } from "@/types"
 
 interface ATMListProps {
-  selectedATM?: ATMData | null
-  onATMSelect: (atm: ATMData) => void
-  refresh: number // Add a refresh trigger
+  atms: ATM[]
+  selectedATM?: ATM | null
+  onATMSelect: (atm: ATM) => void
+  loading: boolean
 }
 
-export default function ATMList({ selectedATM, onATMSelect, refresh }: ATMListProps) {
-  const [atms, setAtms] = useState<ATMData[]>([])
-  const [filteredAtms, setFilteredAtms] = useState<ATMData[]>([])
+export default function ATMList({ atms, selectedATM, onATMSelect, loading }: ATMListProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchATMs = async () => {
-      try {
-        const response = await fetch("/api/atms")
-        const data = await response.json()
-        setAtms(data.atms)
-        setFilteredAtms(data.atms)
-      } catch (error) {
-        console.error("[v0] Error fetching ATMs:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchATMs()
-  }, [refresh]) // Re-fetch when the refresh prop changes
 
   const filteredResults = useMemo(() => {
     // Sort ATMs to put "Saham Bank" first
@@ -79,9 +46,9 @@ export default function ATMList({ selectedATM, onATMSelect, refresh }: ATMListPr
       if (aIsSG && !bIsSG) return -1
       if (!aIsSG && bIsSG) return 1
       if (aIsSG && bIsSG) return b.monthly_volume - a.monthly_volume
-
+      
       // Otherwise, sort by name
-      return a.name.localeCompare(b.name)
+      return a.id.localeCompare(b.id)
     })
     let filtered = sortedAtms
 
@@ -90,19 +57,15 @@ export default function ATMList({ selectedATM, onATMSelect, refresh }: ATMListPr
       const searchLower = searchTerm.toLowerCase()
       filtered = filtered.filter((atm) => {
         return (
-          atm.name.toLowerCase().includes(searchLower) ||
           atm.bank_name.toLowerCase().includes(searchLower) ||
           atm.city.toLowerCase().includes(searchLower) ||
           atm.region.toLowerCase().includes(searchLower) ||
-          atm.branch_location.toLowerCase().includes(searchLower) ||
           // Enhanced address search - split search terms for better matching
           searchLower
             .split(" ")
             .every(
               (term) =>
-                atm.branch_location.toLowerCase().includes(term) ||
                 atm.city.toLowerCase().includes(term) ||
-                atm.name.toLowerCase().includes(term) ||
                 atm.bank_name.toLowerCase().includes(term),
             )
         )
@@ -116,10 +79,6 @@ export default function ATMList({ selectedATM, onATMSelect, refresh }: ATMListPr
 
     return filtered
   }, [atms, searchTerm, statusFilter])
-
-  useEffect(() => {
-    setFilteredAtms(filteredResults)
-  }, [filteredResults])
 
   // Get unique cities, regions, and bank names for suggestions
   const uniqueSuggestions = useMemo(() => {
@@ -190,6 +149,7 @@ export default function ATMList({ selectedATM, onATMSelect, refresh }: ATMListPr
         <CardContent>
           <div className="flex items-center justify-center py-8">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            <p className="ml-2 text-sm text-muted-foreground">Chargement...</p>
           </div>
         </CardContent>
       </Card>
@@ -205,7 +165,7 @@ export default function ATMList({ selectedATM, onATMSelect, refresh }: ATMListPr
             <span>Liste des ATMs</span>
           </div>
           <Badge variant="secondary" className="text-xs">
-            {filteredAtms.length}/{atms.length}
+            {filteredResults.length}/{atms.length}
           </Badge>
         </CardTitle>
       </CardHeader>
@@ -292,9 +252,9 @@ export default function ATMList({ selectedATM, onATMSelect, refresh }: ATMListPr
           </div>
         </div>
 
-        <ScrollArea className="h-[calc(100vh-500px)] min-h-[300px] max-h-[600px]">
+        <ScrollArea className="h-[calc(100vh-500px)] min-h-[300px] max-h-[600px] relative">
           <div className="space-y-2">
-            {filteredAtms.map((atm) => {
+            {filteredResults.map((atm) => {
               const isSelected = selectedATM?.id === atm.id
               const performance = getPerformanceLevel(atm.monthly_volume)
 
@@ -322,15 +282,10 @@ export default function ATMList({ selectedATM, onATMSelect, refresh }: ATMListPr
                           }}
                         />
                         <div className="min-w-0 flex-1">
-                          <h4 className="font-medium text-sm text-foreground">{atm.name}</h4>
-                          <p className="text-xs text-muted-foreground">{atm.branch_location}</p>
+                          <h4 className="font-medium text-sm text-foreground">{atm.id}</h4>
+                          <p className="text-xs text-muted-foreground">{atm.city}, {atm.region}</p>
                         </div>
                       </div>
-                      {atm.installation_type === "portable" ? (
-                        <Smartphone className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                      ) : (
-                        <Building2 className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                      )}
                     </div>
 
                     {/* Bank and Status */}
@@ -355,44 +310,20 @@ export default function ATMList({ selectedATM, onATMSelect, refresh }: ATMListPr
                         <span className="text-muted-foreground truncate">{atm.city}</span>
                       </div>
                     </div>
-
-                    {/* Services */}
-                    {atm.services && atm.services.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {atm.services.slice(0, 3).map((service) => (
-                          <Badge
-                            key={service}
-                            variant="outline"
-                            className="text-xs bg-blue-50 text-blue-700 border-blue-200"
-                          >
-                            {service === "retrait"
-                              ? "Retrait"
-                              : service === "depot"
-                                ? "Dépôt"
-                                : service === "consultation"
-                                  ? "Consultation"
-                                  : service === "virement"
-                                    ? "Virement"
-                                    : service === "change"
-                                      ? "Change"
-                                      : service}
-                          </Badge>
-                        ))}
-                        {atm.services.length > 3 && (
-                          <Badge variant="outline" className="text-xs bg-gray-50 text-gray-600">
-                            +{atm.services.length - 3}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
               )
             })}
           </div>
+          {loading && (
+            <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              <p className="ml-2 text-sm text-muted-foreground">Actualisation...</p>
+            </div>
+          )}
         </ScrollArea>
 
-        {filteredAtms.length === 0 && (
+        {filteredResults.length === 0 && !loading && (
           <div className="text-center py-8 text-muted-foreground">
             <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">Aucun ATM trouvé</p>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -251,19 +251,6 @@ export default function ScenarioSimulator() {
     setScenarios((prev) =>
       prev.map((s) => (s.id === activeScenarioId ? { ...s, actions: s.actions.filter((a) => a.id !== actionId) } : s)),
     )
-  }
-
-  const getRiskColor = (risk: string) => {
-    switch (risk) {
-      case "low":
-        return "text-green-600"
-      case "medium":
-        return "text-yellow-600"
-      case "high":
-        return "text-red-600"
-      default:
-        return "text-muted-foreground"
-    }
   }
 
   const getRiskBadgeVariant = (risk: string) => {

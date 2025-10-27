@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -8,22 +8,10 @@ import { MapPin, Target } from "lucide-react"
 import Dashboard from "@/components/dashboard"
 import LeafletMap from "@/components/mapbox-map"
 import EnhancedLayerControls from "@/components/enhanced-layer-controls"
-
-interface ATMData {
-  id: string
-  name: string
-  location: {
-    lng: number
-    lat: number
-  }
-  address: string
-  volume: number
-  roi: number
-  status: string
-}
+import { ATM } from "@/types"
 
 export default function DashboardPage() {
-  const [selectedATM, setSelectedATM] = useState<ATMData | null>(null)
+  const [selectedATM, setSelectedATM] = useState<ATM | null>(null)
   const [activeLayers, setActiveLayers] = useState({
     population: true,
     competitors: true,
@@ -31,10 +19,29 @@ export default function DashboardPage() {
     coverage: false,
   })
   const [simulationMode, setSimulationMode] = useState(false)
+  const [atms, setAtms] = useState<ATM[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const handleATMSelect = useCallback((atm: ATMData) => {
+  const handleATMSelect = useCallback((atm: ATM) => {
     console.log("[v0] ATM selected:", atm)
     setSelectedATM(atm)
+  }, [])
+
+  useEffect(() => {
+    const fetchATMs = async () => {
+      setIsLoading(true)
+      try {
+        const response = await fetch("/api/atms")
+        if (!response.ok) throw new Error("Failed to fetch")
+        const data = await response.json()
+        setAtms(data.atms)
+      } catch (error) {
+        console.error("Error fetching ATMs:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchATMs()
   }, [])
 
   const handleLayerConfigChange = useCallback((layer: string, config: any) => {
@@ -69,6 +76,7 @@ export default function DashboardPage() {
                 size="sm"
                 onClick={() => setSimulationMode(!simulationMode)}
                 className="font-medium"
+                aria-label={simulationMode ? "Switch to Analysis Mode" : "Switch to Simulation Mode"}
               >
                 <Target className="w-4 h-4 mr-2" />
                 {simulationMode ? "Mode Analyse" : "Mode Simulation"}
@@ -91,7 +99,10 @@ export default function DashboardPage() {
                 onLayerToggle={(layer, active) => setActiveLayers((prev) => ({ ...prev, [layer]: active }))}
                 mode="detailed"
                 onLayerConfigChange={handleLayerConfigChange}
+                atms={atms}
+                loading={isLoading}
                 selectedATM={selectedATM}
+                onATMSelect={handleATMSelect}
               />
             </div>
 
@@ -106,7 +117,7 @@ export default function DashboardPage() {
                       </CardTitle>
                       <CardDescription>
                         {selectedATM
-                          ? `ATM sélectionné: ${selectedATM.name} - ${selectedATM.address}`
+                          ? `ATM sélectionné: ${selectedATM.id}`
                           : "Cliquez sur un ATM pour voir ses détails"}
                       </CardDescription>
                     </div>
@@ -114,10 +125,13 @@ export default function DashboardPage() {
                       {selectedATM && (
                         <Badge variant="outline" className="flex items-center space-x-2">
                           <div className="w-2 h-2 rounded-full bg-primary" />
-                          <span>{selectedATM.name}</span>
+                          <span>{selectedATM.id}</span>
                         </Badge>
                       )}
-                      <Badge variant={simulationMode ? "default" : "secondary"}>
+                      <Badge
+                        variant={simulationMode ? "default" : "secondary"}
+                        aria-label={`Current mode: ${simulationMode ? "Simulation" : "Exploration"}`}
+                      >
                         {simulationMode ? "Simulation" : "Exploration"}
                       </Badge>
                     </div>
@@ -129,6 +143,8 @@ export default function DashboardPage() {
                     simulationMode={simulationMode}
                     onLocationSelect={(location) => console.log("[v0] Location selected:", location)}
                     onATMSelect={handleATMSelect}
+                    atms={atms}
+                    selectedATM={selectedATM}
                   />
                 </CardContent>
               </Card>

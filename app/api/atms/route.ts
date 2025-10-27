@@ -1,522 +1,241 @@
 import { NextResponse } from "next/server"
+import { promises as fs } from "fs"
+import path from "path"
 
-export async function GET() {
-  const existingAtms = [
-    // Casablanca Region - Major Banking Hub
-    {
-      id: "ATM001",
-      name: "Attijariwafa Bank - Maarif",
-      latitude: 33.5731,
-      longitude: -7.5898,
-      monthly_volume: 1200,
-      status: "active",
-      city: "Casablanca",
-      region: "Casablanca-Settat",
-      bank_name: "Attijariwafa Bank",
-      installation_type: "fixed",
-      branch_location: "Agence Maarif",
-      services: ["retrait", "depot", "consultation", "virement"],
-    },
-    {
-      id: "ATM002",
-      name: "Banque Populaire - Anfa",
-      latitude: 33.5891,
-      longitude: -7.6031,
-      monthly_volume: 950,
-      status: "active",
-      city: "Casablanca",
-      region: "Casablanca-Settat",
-      bank_name: "Banque Populaire",
-      installation_type: "fixed",
-      branch_location: "Agence Anfa",
-      services: ["retrait", "depot", "consultation"],
-    },
-    {
-      id: "ATM003",
-      name: "BMCE Bank - CFC",
-      latitude: 33.5642,
-      longitude: -7.5756,
-      monthly_volume: 1400,
-      status: "active",
-      city: "Casablanca",
-      region: "Casablanca-Settat",
-      bank_name: "BMCE Bank",
-      installation_type: "fixed",
-      branch_location: "Centre Financier",
-      services: ["retrait", "depot", "consultation", "virement", "change"],
-    },
-    {
-      id: "ATM004",
-      name: "Crédit du Maroc - Gauthier",
-      latitude: 33.5923,
-      longitude: -7.6156,
-      monthly_volume: 800,
-      status: "active",
-      city: "Casablanca",
-      region: "Casablanca-Settat",
-      bank_name: "Crédit du Maroc",
-      installation_type: "portable",
-      branch_location: "Centre Commercial Gauthier",
-      services: ["retrait", "consultation"],
-    },
-    {
-      id: "ATM005",
-      name: "CIH Bank - Ain Diab",
-      latitude: 33.5534,
-      longitude: -7.5634,
-      monthly_volume: 1100,
-      status: "active",
-      city: "Casablanca",
-      region: "Casablanca-Settat",
-      bank_name: "CIH Bank",
-      installation_type: "fixed",
-      branch_location: "Corniche Ain Diab",
-      services: ["retrait", "depot", "consultation"],
-    },
-    {
-      id: "ATM006",
-      name: "BMCI - Twin Center",
-      latitude: 33.5831,
-      longitude: -7.5998,
-      monthly_volume: 1350,
-      status: "active",
-      city: "Casablanca",
-      region: "Casablanca-Settat",
-      bank_name: "BMCI",
-      installation_type: "fixed",
-      branch_location: "Twin Center",
-      services: ["retrait", "depot", "consultation", "virement"],
-    },
+type RawATM = {
+  id?: string
+  idatm?: string
+  latitude: number
+  longitude: number
+  monthly_volume: number
+  city: string
+  region: string
+  bank_name: string
+  status: string
+  name?: string
+  installation_type?: string
+  services?: string[] | null
+  branch_location?: string
+}
 
-    // Rabat Region - Administrative Capital
-    {
-      id: "ATM007",
-      name: "Attijariwafa Bank - Agdal",
-      latitude: 34.0209,
-      longitude: -6.8498,
-      monthly_volume: 1350,
-      status: "active",
-      city: "Rabat",
-      region: "Rabat-Salé-Kénitra",
-      bank_name: "Attijariwafa Bank",
-      installation_type: "fixed",
-      branch_location: "Quartier Agdal",
-      services: ["retrait", "depot", "consultation", "virement"],
-    },
-    {
-      id: "ATM008",
-      name: "Banque Populaire - Hassan",
-      latitude: 34.0142,
-      longitude: -6.8356,
-      monthly_volume: 1180,
-      status: "active",
-      city: "Rabat",
-      region: "Rabat-Salé-Kénitra",
-      bank_name: "Banque Populaire",
-      installation_type: "fixed",
-      branch_location: "Avenue Hassan II",
-      services: ["retrait", "depot", "consultation"],
-    },
-    {
-      id: "ATM009",
-      name: "Al Barid Bank - Salé",
-      latitude: 34.0531,
-      longitude: -6.7722,
-      monthly_volume: 890,
-      status: "maintenance",
-      city: "Salé",
-      region: "Rabat-Salé-Kénitra",
-      bank_name: "Al Barid Bank",
-      installation_type: "portable",
-      branch_location: "Centre Ville Salé",
-      services: ["retrait", "consultation"],
-    },
+type ATM = RawATM & {
+  id: string
+  name: string
+  installation_type: "fixed" | "portable"
+  services: string[]
+  branch_location: string
+}
 
-    // Marrakech Region - Tourist Hub
-    {
-      id: "ATM010",
-      name: "BMCE Bank - Hivernage",
-      latitude: 31.6295,
-      longitude: -8.0081,
-      monthly_volume: 1250,
-      status: "active",
-      city: "Marrakech",
-      region: "Marrakech-Safi",
-      bank_name: "BMCE Bank",
-      installation_type: "fixed",
-      branch_location: "Quartier Hivernage",
-      services: ["retrait", "depot", "consultation", "change"],
-    },
-    {
-      id: "ATM011",
-      name: "Crédit Agricole - Gueliz",
-      latitude: 31.634,
-      longitude: -7.9811,
-      monthly_volume: 1050,
-      status: "active",
-      city: "Marrakech",
-      region: "Marrakech-Safi",
-      bank_name: "Crédit Agricole du Maroc",
-      installation_type: "portable",
-      branch_location: "Centre Commercial Gueliz",
-      services: ["retrait", "consultation"],
-    },
-    {
-      id: "ATM012",
-      name: "Société Générale - Médina",
-      latitude: 31.6195,
-      longitude: -7.9981,
-      monthly_volume: 980,
-      status: "active",
-      city: "Marrakech",
-      region: "Marrakech-Safi",
-      bank_name: "Société Générale Maroc",
-      installation_type: "fixed",
-      branch_location: "Place Jemaa el-Fna",
-      services: ["retrait", "depot", "consultation", "change"],
-    },
+const DEFAULT_SERVICES = ["retrait", "consultation"] as const
+const INSTALLATION_TYPE_MAP = new Map<string, ATM["installation_type"]>([
+  ["fixed", "fixed"],
+  ["agency", "fixed"],
+  ["branch", "fixed"],
+  ["agence", "fixed"],
+  ["portable", "portable"],
+  ["mobile", "portable"],
+  ["kiosk", "portable"],
+  ["deployable", "portable"],
+])
 
-    // Agadir Region - Coastal Tourism
-    {
-      id: "ATM013",
-      name: "Banque Populaire - Marina",
-      latitude: 30.4278,
-      longitude: -9.5981,
-      monthly_volume: 920,
-      status: "active",
-      city: "Agadir",
-      region: "Souss-Massa",
-      bank_name: "Banque Populaire",
-      installation_type: "portable",
-      branch_location: "Marina d'Agadir",
-      services: ["retrait", "consultation", "change"],
-    },
-    {
-      id: "ATM014",
-      name: "CIH Bank - Talborjt",
-      latitude: 30.4202,
-      longitude: -9.5698,
-      monthly_volume: 1080,
-      status: "active",
-      city: "Agadir",
-      region: "Souss-Massa",
-      bank_name: "CIH Bank",
-      installation_type: "fixed",
-      branch_location: "Quartier Talborjt",
-      services: ["retrait", "depot", "consultation"],
-    },
+const normalizeInstallationType = (value?: string): ATM["installation_type"] => {
+  if (!value) return "fixed"
+  const normalized = value.trim().toLowerCase()
+  return INSTALLATION_TYPE_MAP.get(normalized) ?? "fixed"
+}
 
-    // Fès Region - Cultural Center
-    {
-      id: "ATM015",
-      name: "Attijariwafa Bank - Fès Médina",
-      latitude: 34.0331,
-      longitude: -4.9998,
-      monthly_volume: 780,
-      status: "maintenance",
-      city: "Fès",
-      region: "Fès-Meknès",
-      bank_name: "Attijariwafa Bank",
-      installation_type: "fixed",
-      branch_location: "Bab Boujloud",
-      services: ["retrait", "depot", "consultation"],
-    },
-    {
-      id: "ATM016",
-      name: "BMCI - Ville Nouvelle",
-      latitude: 34.0181,
-      longitude: -5.0003,
-      monthly_volume: 1200,
-      status: "active",
-      city: "Fès",
-      region: "Fès-Meknès",
-      bank_name: "BMCI",
-      installation_type: "fixed",
-      branch_location: "Avenue Hassan II",
-      services: ["retrait", "depot", "consultation", "virement"],
-    },
+const normalizeServices = (value?: string[] | null): string[] => {
+  if (!value || !Array.isArray(value)) return []
+  const unique = new Map<string, string>()
+  for (const entry of value) {
+    if (typeof entry !== "string") continue
+    const trimmed = entry.trim()
+    if (!trimmed) continue
+    const lower = trimmed.toLowerCase()
+    if (!unique.has(lower)) {
+      unique.set(lower, lower)
+    }
+  }
+  return Array.from(unique.values())
+}
 
-    // Tanger Region - International Gateway
-    {
-      id: "ATM017",
-      name: "BMCE Bank - Port Tanger Med",
-      latitude: 35.7595,
-      longitude: -5.834,
-      monthly_volume: 1150,
-      status: "active",
-      city: "Tanger",
-      region: "Tanger-Tétouan-Al Hoceïma",
-      bank_name: "BMCE Bank",
-      installation_type: "portable",
-      branch_location: "Zone Portuaire Tanger Med",
-      services: ["retrait", "consultation", "change"],
-    },
-    {
-      id: "ATM018",
-      name: "Crédit du Maroc - Grand Socco",
-      latitude: 35.7473,
-      longitude: -5.8027,
-      monthly_volume: 890,
-      status: "active",
-      city: "Tanger",
-      region: "Tanger-Tétouan-Al Hoceïma",
-      bank_name: "Crédit du Maroc",
-      installation_type: "fixed",
-      branch_location: "Place du Grand Socco",
-      services: ["retrait", "depot", "consultation"],
-    },
+type BackendStatus = "unknown" | "available" | "unreachable"
+let backendStatus: BackendStatus = "unknown"
 
-    // Meknès - Imperial City
-    {
-      id: "ATM019",
-      name: "Banque Populaire - Bab Mansour",
-      latitude: 33.8935,
-      longitude: -5.5407,
-      monthly_volume: 950,
-      status: "active",
-      city: "Meknès",
-      region: "Fès-Meknès",
-      bank_name: "Banque Populaire",
-      installation_type: "fixed",
-      branch_location: "Place El Hedim",
-      services: ["retrait", "depot", "consultation"],
-    },
+const loadScrapedAtms = async (): Promise<RawATM[]> => {
+  // Prefer the 'backend' directory, but check 'scripts' as a fallback for legacy structure.
+  const dataPath = path.join(process.cwd(), "backend", "data.json")
 
-    // Oujda - Eastern Border
-    {
-      id: "ATM020",
-      name: "Al Barid Bank - Centre Ville",
-      latitude: 34.6814,
-      longitude: -1.9085,
-      monthly_volume: 870,
-      status: "active",
-      city: "Oujda",
-      region: "Oriental",
-      bank_name: "Al Barid Bank",
-      installation_type: "fixed",
-      branch_location: "Boulevard Mohammed V",
-      services: ["retrait", "consultation"],
-    },
+  try {
+    const fileContents = await fs.readFile(dataPath, "utf8")
+    const parsed = JSON.parse(fileContents)
+    if (Array.isArray(parsed)) {
+      console.log(`[api/atms] Successfully loaded ${parsed.length} records from ${dataPath}`)
+      return parsed as RawATM[]
+    }
+    console.warn(`[api/atms] Local data file is not an array: ${dataPath}`)
+    return []
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      console.error(`[api/atms] Failed to read or parse local data file at ${dataPath}:`, error)
+    } else {
+      console.warn(`[api/atms] No local data file found at ${dataPath}. Fallback will be empty.`)
+    }
+    return []
+  }
+}
 
-    // Kenitra - Industrial Zone
-    {
-      id: "ATM021",
-      name: "CIH Bank - Zone Industrielle",
-      latitude: 34.261,
-      longitude: -6.5802,
-      monthly_volume: 820,
-      status: "active",
-      city: "Kenitra",
-      region: "Rabat-Salé-Kénitra",
-      bank_name: "CIH Bank",
-      installation_type: "portable",
-      branch_location: "Atlantic Free Zone",
-      services: ["retrait", "consultation"],
-    },
+const buildLocalDataset = async () => {
+  const rawAtms = await loadScrapedAtms()
 
-    // Tétouan - Northern Coast
-    {
-      id: "ATM022",
-      name: "Société Générale - Tétouan",
-      latitude: 35.5889,
-      longitude: -5.3684,
-      monthly_volume: 750,
-      status: "active",
-      city: "Tétouan",
-      region: "Tanger-Tétouan-Al Hoceïma",
-      bank_name: "Société Générale Maroc",
-      installation_type: "fixed",
-      branch_location: "Place Hassan II",
-      services: ["retrait", "depot", "consultation"],
-    },
+  const enrich = (atm: RawATM): ATM | null => {
+    const atmId = atm.id || atm.idatm
+    if (!atmId) {
+      return null
+    }
 
-    // El Jadida - Atlantic Coast
-    {
-      id: "ATM023",
-      name: "Crédit Agricole - El Jadida",
-      latitude: 33.2316,
-      longitude: -8.5069,
-      monthly_volume: 680,
-      status: "active",
-      city: "El Jadida",
-      region: "Casablanca-Settat",
-      bank_name: "Crédit Agricole du Maroc",
-      installation_type: "fixed",
-      branch_location: "Cité Portugaise",
-      services: ["retrait", "depot", "consultation"],
-    },
+    const normalizedServices = normalizeServices(atm.services)
 
-    // Safi - Industrial Port
-    {
-      id: "ATM024",
-      name: "BMCI - Port de Safi",
-      latitude: 32.2994,
-      longitude: -9.2372,
-      monthly_volume: 620,
-      status: "maintenance",
-      city: "Safi",
-      region: "Marrakech-Safi",
-      bank_name: "BMCI",
-      installation_type: "portable",
-      branch_location: "Zone Portuaire",
-      services: ["retrait", "consultation"],
-    },
-
-    // Beni Mellal - Agricultural Center
-    {
-      id: "ATM025",
-      name: "Banque Populaire - Beni Mellal",
-      latitude: 32.3373,
-      longitude: -6.3498,
-      monthly_volume: 780,
-      status: "active",
-      city: "Beni Mellal",
-      region: "Béni Mellal-Khénifra",
-      bank_name: "Banque Populaire",
-      installation_type: "fixed",
-      branch_location: "Centre Ville",
-      services: ["retrait", "depot", "consultation"],
-    },
-
-    // Nador - Mediterranean Coast
-    {
-      id: "ATM026",
-      name: "Al Barid Bank - Nador",
-      latitude: 35.1681,
-      longitude: -2.9287,
-      monthly_volume: 720,
-      status: "active",
-      city: "Nador",
-      region: "Oriental",
-      bank_name: "Al Barid Bank",
-      installation_type: "fixed",
-      branch_location: "Boulevard Hassan II",
-      services: ["retrait", "consultation"],
-    },
-
-    // Khouribga - Mining Center
-    {
-      id: "ATM027",
-      name: "Attijariwafa Bank - Khouribga",
-      latitude: 32.8811,
-      longitude: -6.9063,
-      monthly_volume: 650,
-      status: "active",
-      city: "Khouribga",
-      region: "Casablanca-Settat",
-      bank_name: "Attijariwafa Bank",
-      installation_type: "fixed",
-      branch_location: "Centre Minier",
-      services: ["retrait", "depot", "consultation"],
-    },
-
-    // Additional Strategic Locations
-    {
-      id: "ATM028",
-      name: "CDG Capital - Mohammed V Airport",
-      latitude: 33.3675,
-      longitude: -7.5898,
-      monthly_volume: 1800,
-      status: "active",
-      city: "Casablanca",
-      region: "Casablanca-Settat",
-      bank_name: "CDG Capital",
-      installation_type: "portable",
-      branch_location: "Aéroport Mohammed V",
-      services: ["retrait", "consultation", "change"],
-    },
-    {
-      id: "ATM029",
-      name: "Bank Al-Maghrib - Rabat Centre",
-      latitude: 34.0209,
-      longitude: -6.8398,
-      monthly_volume: 950,
-      status: "active",
-      city: "Rabat",
-      region: "Rabat-Salé-Kénitra",
-      bank_name: "Bank Al-Maghrib",
-      installation_type: "fixed",
-      branch_location: "Siège Central",
-      services: ["retrait", "consultation"],
-    },
-    {
-      id: "ATM030",
-      name: "Umnia Bank - Casablanca Finance City",
-      latitude: 33.5931,
-      longitude: -7.5998,
-      monthly_volume: 1450,
-      status: "active",
-      city: "Casablanca",
-      region: "Casablanca-Settat",
-      bank_name: "Umnia Bank",
-      installation_type: "fixed",
-      branch_location: "Casablanca Finance City",
-      services: ["retrait", "depot", "consultation", "virement", "change"],
-    },
-  ]
-
-  const bankingMarketData = {
-    total_banks: new Set(existingAtms.map((atm) => atm.bank_name)).size,
-    installation_types: {
-      fixed: existingAtms.filter((atm) => atm.installation_type === "fixed").length,
-      portable: existingAtms.filter((atm) => atm.installation_type === "portable").length,
-    },
-    market_leaders: [
-      {
-        bank: "Attijariwafa Bank",
-        atms: existingAtms.filter((atm) => atm.bank_name === "Attijariwafa Bank").length,
-        market_share: "22.5%",
-        avg_volume: Math.round(
-          existingAtms
-            .filter((atm) => atm.bank_name === "Attijariwafa Bank")
-            .reduce((sum, atm) => sum + atm.monthly_volume, 0) /
-            existingAtms.filter((atm) => atm.bank_name === "Attijariwafa Bank").length,
-        ),
-      },
-      {
-        bank: "Banque Populaire",
-        atms: existingAtms.filter((atm) => atm.bank_name === "Banque Populaire").length,
-        market_share: "18.3%",
-        avg_volume: Math.round(
-          existingAtms
-            .filter((atm) => atm.bank_name === "Banque Populaire")
-            .reduce((sum, atm) => sum + atm.monthly_volume, 0) /
-            existingAtms.filter((atm) => atm.bank_name === "Banque Populaire").length,
-        ),
-      },
-      {
-        bank: "BMCE Bank",
-        atms: existingAtms.filter((atm) => atm.bank_name === "BMCE Bank").length,
-        market_share: "15.7%",
-        avg_volume: Math.round(
-          existingAtms
-            .filter((atm) => atm.bank_name === "BMCE Bank")
-            .reduce((sum, atm) => sum + atm.monthly_volume, 0) /
-            existingAtms.filter((atm) => atm.bank_name === "BMCE Bank").length,
-        ),
-      },
-    ],
-    services_analysis: {
-      basic_services: existingAtms.filter((atm) => atm.services.includes("retrait")).length,
-      deposit_enabled: existingAtms.filter((atm) => atm.services.includes("depot")).length,
-      currency_exchange: existingAtms.filter((atm) => atm.services.includes("change")).length,
-      transfer_enabled: existingAtms.filter((atm) => atm.services.includes("virement")).length,
-    },
+    return {
+      ...atm,
+      id: atmId,
+      name: atm.name?.trim() || atmId,
+      installation_type: normalizeInstallationType(atm.installation_type),
+      services: normalizedServices.length ? normalizedServices : [...DEFAULT_SERVICES],
+      branch_location: atm.branch_location?.trim() || `${atm.city} - ${atm.region}`,
+    }
   }
 
-  return NextResponse.json({
-    atms: existingAtms,
-    total_count: existingAtms.length,
-    cities_covered: new Set(existingAtms.map((atm) => atm.city)).size,
-    regions_covered: new Set(existingAtms.map((atm) => atm.region)).size,
-    banking_market: bankingMarketData,
-    performance_summary: {
-      high_performance: existingAtms.filter((atm) => atm.monthly_volume > 1200).length,
-      medium_performance: existingAtms.filter((atm) => atm.monthly_volume >= 900 && atm.monthly_volume <= 1200).length,
-      low_performance: existingAtms.filter((atm) => atm.monthly_volume < 900).length,
-      maintenance_required: existingAtms.filter((atm) => atm.status === "maintenance").length,
-      portable_atms: existingAtms.filter((atm) => atm.installation_type === "portable").length,
-      fixed_atms: existingAtms.filter((atm) => atm.installation_type === "fixed").length,
-    },
+  const dedupedAtms = new Map<string, ATM>()
+  for (const atm of rawAtms.map(enrich).filter((atm): atm is ATM => atm !== null)) {
+    dedupedAtms.set(atm.id, atm)
+  }
+
+  const atms = Array.from(dedupedAtms.values()).map((atm) => {
+    const normalizedServices = normalizeServices(atm.services)
+    return {
+      ...atm,
+      name: atm.name?.trim() || atm.id,
+      installation_type: normalizeInstallationType(atm.installation_type),
+      services: normalizedServices.length ? normalizedServices : [...DEFAULT_SERVICES],
+      branch_location: atm.branch_location?.trim() || `${atm.city} - ${atm.region}`,
+    }
   })
+
+  const totalCount = atms.length
+  const citiesCovered = new Set(atms.map((atm) => atm.city)).size
+  const regionsCovered = new Set(atms.map((atm) => atm.region)).size
+
+  const bankStats = atms.reduce<Record<string, { bank: string; count: number; totalVolume: number }>>((acc, atm) => {
+    const key = atm.bank_name || "Inconnu"
+    if (!acc[key]) {
+      acc[key] = { bank: key, count: 0, totalVolume: 0 }
+    }
+    acc[key].count += 1
+    acc[key].totalVolume += atm.monthly_volume || 0
+    return acc
+  }, {})
+
+  const marketLeaders = Object.values(bankStats)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3)
+    .map((entry) => ({
+      bank: entry.bank,
+      atms: entry.count,
+      market_share: totalCount ? `${((entry.count / totalCount) * 100).toFixed(1)}%` : "0.0%",
+      avg_volume: entry.count ? Math.round(entry.totalVolume / entry.count) : 0,
+    }))
+
+  const countByService = (service: string) => {
+    const target = service.toLowerCase()
+    return atms.filter((atm) => atm.services.includes(target)).length
+  }
+  const countByInstallationType = (type: "fixed" | "portable") =>
+    atms.filter((atm) => atm.installation_type === type).length
+
+  const availableServices = Array.from(
+    atms.reduce((acc, atm) => {
+      for (const service of atm.services) {
+        acc.add(service)
+      }
+      return acc
+    }, new Set<string>()),
+  ).sort()
+
+  const bankingMarketData = {
+    total_banks: Object.keys(bankStats).length,
+    installation_types: {
+      fixed: countByInstallationType("fixed"),
+      portable: countByInstallationType("portable"),
+    },
+    market_leaders: marketLeaders,
+    services_analysis: {
+      basic_services: countByService("retrait"),
+      deposit_enabled: countByService("depot"),
+      currency_exchange: countByService("change"),
+      transfer_enabled: countByService("virement"),
+    },
+    available_services: availableServices,
+  }
+
+  const performanceSummary = {
+    high_performance: atms.filter((atm) => atm.monthly_volume > 1200).length,
+    medium_performance: atms.filter((atm) => atm.monthly_volume >= 900 && atm.monthly_volume <= 1200).length,
+    low_performance: atms.filter((atm) => atm.monthly_volume < 900).length,
+    maintenance_required: atms.filter((atm) => atm.status === "maintenance").length,
+    portable_atms: countByInstallationType("portable"),
+    fixed_atms: countByInstallationType("fixed"),
+  }
+
+  return {
+    atms,
+    total_count: totalCount,
+    cities_covered: citiesCovered,
+    regions_covered: regionsCovered,
+    banking_market: bankingMarketData,
+    performance_summary: performanceSummary,
+    metadata: {
+      source: "local",
+      generated_at: new Date().toISOString(),
+      missing_services: atms.filter((atm) => atm.services.length === 0).length,
+      missing_installation_type: rawAtms.filter((atm) => !atm.installation_type).length,
+      missing_branch_location: rawAtms.filter((atm) => !atm.branch_location).length,
+    },
+  }
+}
+
+export async function GET() {
+  const backendUrl = process.env.BACKEND_API_URL
+
+  if (backendUrl && backendStatus !== "unreachable") {
+    try {
+      const response = await fetch(`${backendUrl}/atms`, { cache: "no-store" })
+      if (response.ok) {
+        const data = await response.json()
+        backendStatus = "available"
+        return NextResponse.json(data)
+      }
+
+      console.warn(
+        `[api/atms] Backend responded with status ${response.status}. Falling back to local dataset.`,
+      )
+      if (response.status >= 500) {
+        backendStatus = "unreachable"
+      }
+    } catch (error) {
+      backendStatus = "unreachable"
+      const message =
+        error instanceof Error ? `${error.name}: ${error.message}` : "Unknown error"
+      console.warn(
+        `[api/atms] Backend unreachable (${backendUrl}). Falling back to local dataset. ${message}`,
+      )
+    }
+  }
+
+  const localData = await buildLocalDataset()
+  if (localData.metadata) {
+    localData.metadata.source =
+      backendUrl && backendStatus === "unreachable" ? "local-fallback" : "local"
+  }
+  return NextResponse.json(localData)
 }

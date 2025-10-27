@@ -21,7 +21,7 @@ import {
   BarChart3,
   Calculator,
 } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from "recharts"
 
 interface AnalysisPanelProps {
@@ -38,6 +38,9 @@ export default function AnalysisPanel({ selectedLocation, simulationMode, setSel
   const [searchQuery, setSearchQuery] = useState("")
   const [analysis, setAnalysis] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [geocodeLoading, setGeocodeLoading] = useState(false)
+  const [geocodeError, setGeocodeError] = useState<string | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   // Mock analysis calculation with more sophisticated data
   useEffect(() => {
@@ -125,23 +128,34 @@ export default function AnalysisPanel({ selectedLocation, simulationMode, setSel
   const handleAddressSearch = async () => {
     if (!searchQuery.trim()) return
 
-    setLoading(true)
-    try {
-      console.log("[v0] Searching for address:", searchQuery)
+    abortControllerRef.current?.abort()
+    const controller = new AbortController()
+    abortControllerRef.current = controller
 
-      // Use OpenStreetMap Nominatim API for geocoding
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&countrycodes=ma&limit=1&addressdetails=1`,
-      )
+    setGeocodeError(null)
+    setGeocodeLoading(true)
+
+    try {
+      console.log("[analysis-panel] Searching for address:", searchQuery)
+
+      const params = new URLSearchParams({
+        q: searchQuery.trim(),
+        countrycodes: "ma",
+        limit: "1",
+      })
+
+      const response = await fetch(`/api/geocode?${params.toString()}`, {
+        signal: controller.signal,
+      })
 
       if (!response.ok) {
         throw new Error("Geocoding request failed")
       }
 
-      const results = await response.json()
-      console.log("[v0] Geocoding results:", results)
+      const payload = await response.json()
+      const results = Array.isArray(payload.results) ? payload.results : []
 
-      if (results && results.length > 0) {
+      if (results.length > 0) {
         const result = results[0]
         const location = {
           lat: Number.parseFloat(result.lat),
@@ -149,7 +163,7 @@ export default function AnalysisPanel({ selectedLocation, simulationMode, setSel
           address: result.display_name,
         }
 
-        console.log("[v0] Found location:", location)
+        console.log("[analysis-panel] Found location:", location)
 
         // Update the selected location to trigger map update and analysis
         setSelectedLocation(location)
@@ -166,16 +180,25 @@ export default function AnalysisPanel({ selectedLocation, simulationMode, setSel
         // Clear the search query after successful search
         setSearchQuery("")
       } else {
-        console.log("[v0] No results found for:", searchQuery)
-        alert("Aucun résultat trouvé pour cette adresse. Veuillez essayer une autre recherche.")
+        console.log("[analysis-panel] No results found for:", searchQuery)
+        setGeocodeError("Aucun résultat trouvé pour cette adresse. Veuillez essayer une autre recherche.")
       }
     } catch (error) {
-      console.error("[v0] Geocoding error:", error)
-      alert("Erreur lors de la recherche d'adresse. Veuillez réessayer.")
+      if ((error as DOMException).name === "AbortError") {
+        return
+      }
+      console.error("[analysis-panel] Geocoding error:", error)
+      setGeocodeError("Erreur lors de la recherche d'adresse. Veuillez réessayer ultérieurement.")
     } finally {
-      setLoading(false)
+      setGeocodeLoading(false)
     }
   }
+
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort()
+    }
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -195,13 +218,29 @@ export default function AnalysisPanel({ selectedLocation, simulationMode, setSel
                 placeholder="Ex: Avenue Mohammed V, Casablanca"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && handleAddressSearch()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault()
+                    handleAddressSearch()
+                  }
+                }}
+                aria-describedby={geocodeError ? "geocode-error" : undefined}
               />
             </div>
-            <Button className="w-full" size="sm" onClick={handleAddressSearch}>
+            <Button
+              className="w-full"
+              size="sm"
+              onClick={handleAddressSearch}
+              disabled={geocodeLoading}
+            >
               <Search className="w-4 h-4 mr-2" />
-              Rechercher
+              {geocodeLoading ? "Recherche..." : "Rechercher"}
             </Button>
+            {geocodeError && (
+              <p id="geocode-error" className="text-sm text-destructive">
+                {geocodeError}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Disallow crawling of preview or API routes
+Disallow: /api/
+Disallow: /draft/
+
+Sitemap: https://geomarketing-pro.com/sitemap.xml

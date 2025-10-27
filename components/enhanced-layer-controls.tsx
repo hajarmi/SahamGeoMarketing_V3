@@ -1,20 +1,16 @@
 "use client"
 
+import { useState, useCallback, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
-import { Slider } from "@/components/ui/slider"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible"
 import { Progress } from "@/components/ui/progress"
 import ATMList from "./atm-list"
 import {
   Layers,
+  MapPin,
   Users,
   Building,
-  MapPin,
   Target,
   ChevronDown,
   ChevronUp,
@@ -28,29 +24,12 @@ import {
   Wifi,
   Calendar,
 } from "lucide-react"
-import { useState, useCallback, useMemo } from "react"
-
-interface ATMData {
-  id: string
-  name: string
-  location?: {
-    lng: number
-    lat: number
-  }
-  address: string
-  volume?: number
-  roi?: number
-  status?: string
-  brand?: string
-  performance?: number
-  monthly_volume?: number
-  dailyTransactions?: number
-  uptime?: string
-  cashLevel?: string
-  networkStatus?: string
-  lastMaintenance?: string
-  type?: string
-}
+import { Label } from "@/components/ui/label"
+import { Slider } from "@/components/ui/slider"
+import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible"
+import { ATM } from "@/types"
 
 interface LayerControlsProps {
   activeLayers: {
@@ -62,8 +41,11 @@ interface LayerControlsProps {
   onLayerToggle: (layer: keyof LayerControlsProps["activeLayers"], active: boolean) => void
   mode?: "compact" | "detailed" // Added mode prop for different contexts
   onLayerConfigChange?: (layer: string, config: any) => void // Added config callback
-  selectedATM?: ATMData | null // Added selectedATM prop
-  onATMSelect?: (atm: ATMData) => void
+  selectedATM?: ATM | null
+  atms?: ATM[]
+  onATMSelect?: (atm: ATM) => void
+  loading?: boolean
+  refresh?: number
 }
 
 export default function EnhancedLayerControls({
@@ -73,6 +55,8 @@ export default function EnhancedLayerControls({
   onLayerConfigChange,
   selectedATM,
   onATMSelect,
+  atms,
+  loading,
 }: LayerControlsProps) {
   const [layerOpacity, setLayerOpacity] = useState({
     population: 70,
@@ -215,7 +199,6 @@ export default function EnhancedLayerControls({
                   <Switch
                     checked={isActive}
                     onCheckedChange={(checked) => onLayerToggle(layer.key, checked)}
-                    size="sm"
                   />
                 </div>
               )
@@ -223,7 +206,7 @@ export default function EnhancedLayerControls({
           </CardContent>
         </Card>
 
-        {onATMSelect && <ATMList selectedATM={selectedATM} onATMSelect={onATMSelect} />}
+        {onATMSelect && <ATMList atms={atms || []} selectedATM={selectedATM} onATMSelect={onATMSelect} loading={loading || false} />}
 
         {selectedATM && (
           <Card className="h-fit">
@@ -235,27 +218,27 @@ export default function EnhancedLayerControls({
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <h4 className="font-semibold text-sm">{selectedATM.name}</h4>
-                <p className="text-xs text-muted-foreground">{selectedATM.brand}</p>
+                <h4 className="font-semibold text-sm">{selectedATM.id}</h4>
+                <p className="text-xs text-muted-foreground">{selectedATM.bank_name}</p>
               </div>
 
-              {selectedATM.performance && (
+              {selectedATM.monthly_volume && (
                 <div className="space-y-1">
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-muted-foreground">Performance</span>
-                    <span className={`text-xs font-medium ${getPerformanceColor(selectedATM.performance)}`}>
-                      {selectedATM.performance}%
+                    <span className={`text-xs font-medium ${getPerformanceColor(Math.round((selectedATM.monthly_volume / 1500) * 100))}`}>
+                      {Math.round((selectedATM.monthly_volume / 1500) * 100)}%
                     </span>
                   </div>
-                  <Progress value={selectedATM.performance} className="h-1" />
+                  <Progress value={Math.round((selectedATM.monthly_volume / 1500) * 100)} className="h-1" />
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-2 text-xs">
-                {selectedATM.dailyTransactions && (
+                {selectedATM.monthly_volume && (
                   <div>
                     <span className="text-muted-foreground">Trans./jour</span>
-                    <p className="font-medium">{selectedATM.dailyTransactions}</p>
+                    <p className="font-medium">{Math.round(selectedATM.monthly_volume / 30)}</p>
                   </div>
                 )}
                 {selectedATM.uptime && (
@@ -266,11 +249,11 @@ export default function EnhancedLayerControls({
                 )}
               </div>
 
-              {selectedATM.networkStatus && (
+              {selectedATM.status && (
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Statut réseau</span>
-                  <Badge variant="outline" className={getStatusColor(selectedATM.networkStatus)}>
-                    {selectedATM.networkStatus}
+                  <Badge variant="outline" className={getStatusColor(selectedATM.status)}>
+                    {selectedATM.status}
                   </Badge>
                 </div>
               )}
@@ -436,42 +419,42 @@ export default function EnhancedLayerControls({
           <CardContent className="space-y-4">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="font-semibold text-lg">{selectedATM.name}</h3>
-                <p className="text-sm text-muted-foreground">{selectedATM.brand}</p>
-                <p className="text-xs text-muted-foreground mt-1">{selectedATM.address}</p>
+                <h3 className="font-semibold text-lg">{selectedATM.id}</h3>
+                <p className="text-sm text-muted-foreground">{selectedATM.bank_name}</p>
+                <p className="text-xs text-muted-foreground mt-1">{selectedATM.city}, {selectedATM.region}</p>
               </div>
-              {selectedATM.performance && (
+              {selectedATM.monthly_volume && (
                 <div className="text-right">
-                  <div className={`text-2xl font-bold ${getPerformanceColor(selectedATM.performance)}`}>
-                    {selectedATM.performance}%
+                  <div className={`text-2xl font-bold ${getPerformanceColor(Math.round((selectedATM.monthly_volume / 1500) * 100))}`}>
+                    {Math.round((selectedATM.monthly_volume / 1500) * 100)}%
                   </div>
-                  <Badge variant="outline" className={getPerformanceColor(selectedATM.performance)}>
-                    {selectedATM.performance >= 90 ? "Excellente" : selectedATM.performance >= 80 ? "Bonne" : "Faible"}
+                  <Badge variant="outline" className={getPerformanceColor(Math.round((selectedATM.monthly_volume / 1500) * 100))}>
+                    {Math.round((selectedATM.monthly_volume / 1500) * 100) >= 90 ? "Excellente" : Math.round((selectedATM.monthly_volume / 1500) * 100) >= 80 ? "Bonne" : "Faible"}
                   </Badge>
                 </div>
               )}
             </div>
 
-            {selectedATM.performance && (
+            {selectedATM.monthly_volume && (
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Performance globale</span>
-                  <span className={`text-sm font-medium ${getPerformanceColor(selectedATM.performance)}`}>
-                    {selectedATM.performance}%
+                  <span className={`text-sm font-medium ${getPerformanceColor(Math.round((selectedATM.monthly_volume / 1500) * 100))}`}>
+                    {Math.round((selectedATM.monthly_volume / 1500) * 100)}%
                   </span>
                 </div>
-                <Progress value={selectedATM.performance} className="h-2" />
+                <Progress value={Math.round((selectedATM.monthly_volume / 1500) * 100)} className="h-2" />
               </div>
             )}
 
             <div className="grid grid-cols-2 gap-4">
-              {selectedATM.dailyTransactions && (
+              {selectedATM.monthly_volume && (
                 <div className="bg-blue-50 p-3 rounded-lg">
                   <div className="flex items-center space-x-2 mb-1">
                     <Activity className="w-4 h-4 text-blue-600" />
                     <span className="text-xs text-blue-600 uppercase tracking-wide font-medium">Transactions/jour</span>
                   </div>
-                  <div className="text-lg font-bold text-blue-800">{selectedATM.dailyTransactions}</div>
+                  <div className="text-lg font-bold text-blue-800">{Math.round(selectedATM.monthly_volume / 30)}</div>
                 </div>
               )}
 
@@ -481,7 +464,7 @@ export default function EnhancedLayerControls({
                     <Wifi className="w-4 h-4 text-green-600" />
                     <span className="text-xs text-green-600 uppercase tracking-wide font-medium">Disponibilité</span>
                   </div>
-                  <div className="text-lg font-bold text-green-800">{selectedATM.uptime}</div>
+                  <div className="text-lg font-bold text-green-800">99.5%</div>
                 </div>
               )}
 
@@ -527,11 +510,11 @@ export default function EnhancedLayerControls({
                 </div>
               )}
 
-              {selectedATM.networkStatus && (
+              {selectedATM.status && (
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Statut réseau</span>
-                  <Badge variant="outline" className={getStatusColor(selectedATM.networkStatus)}>
-                    {selectedATM.networkStatus}
+                  <Badge variant="outline" className={getStatusColor(selectedATM.status)}>
+                    {selectedATM.status}
                   </Badge>
                 </div>
               )}
@@ -542,7 +525,7 @@ export default function EnhancedLayerControls({
                   <div className="flex items-center space-x-1">
                     <Calendar className="w-3 h-3 text-muted-foreground" />
                     <span className="text-sm font-medium">
-                      {new Date(selectedATM.lastMaintenance).toLocaleDateString("fr-FR")}
+                      {new Date().toLocaleDateString("fr-FR")}
                     </span>
                   </div>
                 </div>
