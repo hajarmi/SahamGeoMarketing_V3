@@ -7,6 +7,10 @@ import json
 import warnings
 from datetime import datetime
 from typing import List
+from sklearn.dummy import DummyClassifier #ajoute
+import numpy as np #ajooute 
+from sklearn.dummy import DummyClassifier, DummyRegressor  #ajoute
+
 
 import joblib
 import numpy as np

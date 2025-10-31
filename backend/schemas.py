@@ -4,7 +4,7 @@ Pydantic Schemas for the Geomarketing AI API.
 These models define the data structures and validation rules for API requests and responses.
 """
 from typing import Any, Dict, List, Literal, Optional
-
+from datetime import datetime   #ajoute
 from pydantic import BaseModel, Field
 
 
@@ -115,3 +115,34 @@ class DashboardResponse(BaseModel):
     performance_trend: List[PerformanceTrend]
     opportunity_zones: List[OpportunityZone]
     last_updated: datetime
+
+ # --- Concurrents (nouveau) ---
+
+
+
+class CompetitorData(BaseModel):
+    id: str = Field(..., description="Identifiant unique du point concurrent")
+    bank_name: str = Field("Inconnue", description="Nom de la banque concurrente")
+    latitude: float
+    longitude: float
+    commune: Optional[str] = None
+    commune_norm: Optional[str] = None
+    nb_atm: int = Field(1, ge=0, description="Nombre d'ATMs de ce concurrent à cet endroit")
+
+class CompetitorListResponse(BaseModel):
+    competitors: List[CompetitorData]
+    total_count: int    
+   
+
+class PopulationPoint(BaseModel):
+    id: str
+    commune: str | None = None
+    commune_norm: str
+    latitude: float
+    longitude: float
+    densite_norm: float
+    densite: float | None = None   
+
+class PopulationListResponse(BaseModel):
+    population: list[PopulationPoint]
+    total_count: int

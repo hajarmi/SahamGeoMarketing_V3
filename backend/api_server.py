@@ -10,8 +10,12 @@ import time
 from typing import Any, Dict, List, Optional
 import uuid
 
+from fastapi import HTTPException, Depends
+from services import get_competitors # ajoute 
+
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from services import clear_data_caches 
 
 # Import the service layer which manages state and business logic
 from config import settings
@@ -20,6 +24,10 @@ from schemas import (ATMData, ATMListResponse, DashboardResponse,
                      DashboardSummary, LocationData, OpportunityZone,
                      PerformanceTrend, PredictionResponse, RegionalAnalysis)
 from services import ATMService, atm_service
+
+from schemas import (CompetitorData, CompetitorListResponse) #ajoute
+from services import get_population    #ajoute
+from schemas import PopulationListResponse   #ajoute
 
 # Setup structured logging
 setup_logging()
@@ -265,3 +273,42 @@ async def health_check(service: ATMService = Depends(get_atm_service)):
         "models_loaded": service.predictor.is_trained,
         "atms_count": len(service.existing_atms)
     }
+
+#andpoint ajoute 
+
+@app.get("/competitors", response_model=CompetitorListResponse, tags=["ATM Management"])
+async def list_competitors():
+    try:
+        return get_competitors()
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"CSV invalide: {e}")
+    except Exception as e:
+        logger.error("Erreur /competitors: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Erreur interne lors du chargement des concurrents")
+    
+
+@app.get("/population", response_model=PopulationListResponse, tags=["Layers"])
+async def list_population():
+    try:
+        return get_population()
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"CSV invalide: {e}")
+    except Exception as e:
+        logger.error("Erreur /population: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Erreur interne lors du chargement de la population")    
+    
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Starting Saham Bank Geomarketing API")
+    await atm_service.initialize()
+
+    # clear file-based caches so we don't reuse a bad parse after code changes
+    clear_data_caches()
+
+    asyncio.create_task(periodic_update_task())
+    logger.info("API ready!")

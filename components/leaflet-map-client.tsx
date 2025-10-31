@@ -4,10 +4,16 @@ import { useState } from "react"
 import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
 
-import { MOCK_COMPETITORS, MOCK_POIS } from "@/lib/mock-map-data"
+import { MOCK_POIS } from "@/lib/mock-map-data"
+import { useCompetitors } from "@/hooks/use-competitors"
 import { ATM } from "@/types"
 import ATMHoverCard from "./atm-hover-card"
 import MapLegend from "./map-legend"
+import { usePopulation } from "@/hooks/use-population"
+
+
+
+
 
 interface LeafletMapClientProps {
   activeLayers: { [key: string]: boolean }
@@ -29,6 +35,12 @@ export default function LeafletMapClient({
   const [simulationPoint, setSimulationPoint] = useState<{ lng: number; lat: number } | null>(null)
   const [hoveredATM, setHoveredATM] = useState<any>(null)
   const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 })
+  const { data: competitors, loading: competitorsLoading, error: competitorsError } =
+  useCompetitors(!!activeLayers.competitors);
+  const { data: population, loading: populationLoading, error: populationError } =
+  usePopulation(!!activeLayers.population);
+
+
 
   const handleLocationSelect = (location: { lng: number; lat: number }) => {
     setSimulationPoint(location)
@@ -131,45 +143,75 @@ export default function LeafletMapClient({
           )
         })}
 
-        {/* Competitors */}
-        {activeLayers.competitors &&
-          MOCK_COMPETITORS.map((comp) => (
-            <CircleMarker
-              key={`comp-${comp.id}`}
-              center={[comp.lat, comp.lng]}
-              radius={10}
-              pathOptions={{
-                fillColor: getTypeColor(comp.type),
-                color: "#ffffff",
-                weight: 2,
-                opacity: 0.7,
-                fillOpacity: 0.7,
-              }}
-              eventHandlers={{
-                mouseover: (e) => {
-                  const map = e.target._map
-                  if (map && e.originalEvent) {
-                    const pt = map.mouseEventToContainerPoint(e.originalEvent)
-                    const rect = map.getContainer().getBoundingClientRect()
-                    setHoverPosition({ x: rect.left + pt.x, y: rect.top + pt.y })
-                    setHoveredATM({ ...comp, type: "competitor" })
-                  }
-                  e.target.setStyle({ fillOpacity: 1, color: "#000000" })
-                },
-                mouseout: (e) => {
-                  setHoveredATM(null)
-                  e.target.setStyle({ fillOpacity: 0.7, color: "#ffffff" })
-                },
-              }}
-            >
-              <Popup>
-                <strong>{comp.name}</strong>
-                <br />
-                {comp.category}
-              </Popup>
-            </CircleMarker>
-          ))}
+        {/* Competitors (données réelles API) */}
+{activeLayers.competitors && (
+  <>
+    {competitorsError && (
+      <div className="leaflet-top leaflet-left">
+        <div className="leaflet-control text-red-500 bg-white/80 p-1 rounded">
+          Err: {competitorsError}
+        </div>
+      </div>
+    )}
 
+    {competitorsLoading && (
+      <div className="leaflet-top leaflet-left">
+        <div className="leaflet-control bg-white/80 p-1 rounded">
+          Chargement concurrents…
+        </div>
+      </div>
+    )}
+
+    {!competitorsLoading &&
+      competitors.map((p) => (
+        <CircleMarker
+          key={`comp-${p.id}`}
+          center={[p.latitude, p.longitude]}
+          radius={10}
+          pathOptions={{
+            // rouge pour concurrents
+            fillColor: "#ef4444",
+            color: "#ffffff",
+            weight: 2,
+            opacity: 0.7,
+            fillOpacity: 0.7,
+          }}
+          eventHandlers={{
+            mouseover: (e) => {
+              const map = (e as any).target._map;
+              if (map && (e as any).originalEvent) {
+                const pt = map.mouseEventToContainerPoint((e as any).originalEvent);
+                const rect = map.getContainer().getBoundingClientRect();
+                setHoverPosition({ x: rect.left + pt.x, y: rect.top + pt.y });
+                setHoveredATM({
+                  id: p.id,
+                  name: p.bank_name ?? "Inconnue",
+                  bank_name: p.bank_name ?? "Inconnue",
+                  address: p.commune ?? "",
+                  monthly_volume: p.nb_atm, // on recycle pour afficher un chiffre
+                  type: "competitor",
+                  latitude: p.latitude,
+                  longitude: p.longitude,
+                });
+              }
+              (e as any).target.setStyle({ fillOpacity: 1, color: "#000000" });
+            },
+            mouseout: (e) => {
+              setHoveredATM(null);
+              (e as any).target.setStyle({ fillOpacity: 0.7, color: "#ffffff" });
+            },
+          }}
+        >
+          <Popup>
+            <strong>{p.bank_name ?? "Inconnue"}</strong>
+            <br />
+            {p.commune ?? "-"}<br />
+            ATMs : {p.nb_atm}
+          </Popup>
+        </CircleMarker>
+      ))}
+  </>
+)}
         {/* POIs */}
         {activeLayers.pois &&
           MOCK_POIS.map((poi) => (
@@ -208,6 +250,82 @@ export default function LeafletMapClient({
               </Popup>
             </CircleMarker>
           ))}
+        {/* Population (densité) */}
+{activeLayers.population && (
+  <>
+    {populationError && (
+      <div className="leaflet-top leaflet-left">
+        <div className="leaflet-control text-red-500 bg-white/80 p-1 rounded">
+          Err: {populationError}
+        </div>
+      </div>
+    )}
+
+    {populationLoading && (
+      <div className="leaflet-top leaflet-left">
+        <div className="leaflet-control bg-white/80 p-1 rounded">
+          Chargement population…
+        </div>
+      </div>
+    )}
+
+    {!populationLoading &&
+      population.map((p) => {
+        const getColor = (v: number) => {
+          if (v > 0.8) return "#800026";
+          if (v > 0.6) return "#BD0026";
+          if (v > 0.4) return "#E31A1C";
+          if (v > 0.2) return "#FD8D3C";
+          return "#FED976";
+        };
+
+        return (
+          <CircleMarker
+            key={`pop-${p.id}`}
+            center={[p.latitude, p.longitude]}
+            radius={8}
+            pathOptions={{
+              fillColor: getColor(p.densite_norm),
+              color: "#ffffff",
+              weight: 2,
+              opacity: 0.7,
+              fillOpacity: 0.7,
+            }}
+            eventHandlers={{
+              mouseover: (e) => {
+                const map = (e as any).target._map;
+                if (map && (e as any).originalEvent) {
+                  const pt = map.mouseEventToContainerPoint((e as any).originalEvent);
+                  const rect = map.getContainer().getBoundingClientRect();
+                  setHoverPosition({ x: rect.left + pt.x, y: rect.top + pt.y });
+                  setHoveredATM({
+                    id: p.id,
+                    name: p.commune || p.commune_norm,
+                    address: "",
+                    monthly_volume: p.densite_norm,
+                    type: "population",
+                    latitude: p.latitude,
+                    longitude: p.longitude,
+                  });
+                }
+                (e as any).target.setStyle({ fillOpacity: 1, color: "#000000" });
+              },
+              mouseout: (e) => {
+                setHoveredATM(null);
+                (e as any).target.setStyle({ fillOpacity: 0.7, color: "#ffffff" });
+              },
+            }}
+          >
+            <Popup>
+              <strong>{p.commune || p.commune_norm}</strong>
+              <br />
+              Densité : {p.densite_norm.toFixed(3)}
+            </Popup>
+          </CircleMarker>
+        );
+      })}
+  </>
+)}
 
         {/* Simulation */}
         {simulationMode && simulationPoint && (

@@ -15,8 +15,9 @@ import {
 } from "lucide-react"
 
 import { ATM } from "@/types"
+
 interface ATMHoverCardProps {
-  atm: Partial<ATM> & { marketShare?: number; brand?: string } | null
+  atm: (Partial<ATM> & { marketShare?: number; brand?: string; densite_norm?: number; densite?: number; type?: string }) | null
   position: { x: number; y: number }
   visible: boolean
 }
@@ -25,7 +26,7 @@ export default function ATMHoverCard({ atm, position, visible }: ATMHoverCardPro
   if (!visible || !atm) return null
 
   const getPerformanceColor = (performance?: number) => {
-    if (!performance) return "#6b7280"
+    if (performance == null) return "#6b7280"
     if (performance >= 90) return "#10b981"
     if (performance >= 80) return "#f59e0b"
     return "#ef4444"
@@ -74,10 +75,17 @@ export default function ATMHoverCard({ atm, position, visible }: ATMHoverCardPro
     }
   }
 
-  // Unified score
-  const volume = atm.monthly_volume || atm.dailyTransactions || atm.footTraffic || 0
-  const performanceScore =
-    atm.performance || (volume > 1200 ? 90 : volume > 900 ? 75 : volume > 60 ? 60 : 50)
+  // --- Détection d'un point "Population" (couche densité)
+  const p = atm as any
+  const isPopulation =
+    typeof p?.densite_norm === "number" || typeof p?.densite === "number"
+
+  // Score unifié : pour Population => densite_norm * 100, sinon logique ATM habituelle
+  const volume = atm.monthly_volume || (atm as any).dailyTransactions || (atm as any).footTraffic || 0
+  const performanceScore = isPopulation
+    ? Math.max(0, Math.min(100, Math.round((p?.densite_norm ?? 0) * 100)))
+    : (atm as any).performance ||
+      (volume > 1200 ? 90 : volume > 900 ? 75 : volume > 60 ? 60 : 50)
 
   return (
     <div
@@ -101,16 +109,18 @@ export default function ATMHoverCard({ atm, position, visible }: ATMHoverCardPro
                 style={{ backgroundColor: getPerformanceColor(performanceScore) }}
               />
               <div>
-                <h3 className="font-semibold text-sm text-gray-900 leading-tight">{atm.name || atm.id}</h3>
+                <h3 className="font-semibold text-sm text-gray-900 leading-tight">
+                  {(atm as any).name || atm.id}
+                </h3>
                 <div className="flex items-center gap-2 mt-1">
-                  {atm.bank_name || atm.brand ? (
-                    <Badge variant="outline" className={`text-xs ${getBankColor(atm.bank_name)}`}>
-                      {atm.bank_name || atm.brand}
+                  {(atm as any).bank_name || (atm as any).brand ? (
+                    <Badge variant="outline" className={`text-xs ${getBankColor((atm as any).bank_name)}`}>
+                      {(atm as any).bank_name || (atm as any).brand}
                     </Badge>
                   ) : null}
-                  {atm.installation_type && (
+                  {(atm as any).installation_type && (
                     <Badge variant="outline" className="text-xs bg-slate-100 text-slate-700">
-                      {atm.installation_type === "portable" ? (
+                      {(atm as any).installation_type === "portable" ? (
                         <>
                           <Smartphone className="w-3 h-3 mr-1" />
                           Portable
@@ -127,7 +137,10 @@ export default function ATMHoverCard({ atm, position, visible }: ATMHoverCardPro
               </div>
             </div>
             <div className="text-right">
-              <div className="text-lg font-bold" style={{ color: getPerformanceColor(performanceScore) }}>
+              <div
+                className="text-lg font-bold"
+                style={{ color: getPerformanceColor(performanceScore) }}
+              >
                 {performanceScore}%
               </div>
               <Badge
@@ -138,9 +151,11 @@ export default function ATMHoverCard({ atm, position, visible }: ATMHoverCardPro
                   color: getPerformanceColor(performanceScore),
                 }}
               >
-                {atm.type === "competitor"
+                {isPopulation
+                  ? "Densité"
+                  : (atm as any).type === "competitor"
                   ? "Concurrent"
-                  : atm.type === "poi"
+                  : (atm as any).type === "poi"
                   ? "POI"
                   : performanceScore >= 90
                   ? "Excellent"
@@ -153,89 +168,110 @@ export default function ATMHoverCard({ atm, position, visible }: ATMHoverCardPro
 
           {/* Key Metrics */}
           <div className="grid grid-cols-2 gap-2 mb-3">
-            {(atm.monthly_volume || atm.dailyTransactions || atm.footTraffic) && (
-              <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg">
-                <TrendingUp className="w-4 h-4 text-blue-600" />
-                <div>
-                  <p className="text-xs text-blue-600 font-medium">
-                    {atm.footTraffic ? "Fréquentation" : "Volume"}
-                  </p>
-                  <p className="text-sm font-bold text-blue-800">
-                    {atm.monthly_volume
-                      ? `${atm.monthly_volume}/mois`
-                      : atm.dailyTransactions
-                      ? `${atm.dailyTransactions}/jour`
-                      : atm.footTraffic
-                      ? `${atm.footTraffic}/jour`
-                      : "N/A"}
-                  </p>
-                </div>
-              </div>
+            {!isPopulation && (
+              <>
+                {((atm as any).monthly_volume || (atm as any).dailyTransactions || (atm as any).footTraffic) && (
+                  <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg">
+                    <TrendingUp className="w-4 h-4 text-blue-600" />
+                    <div>
+                      <p className="text-xs text-blue-600 font-medium">
+                        {(atm as any).footTraffic ? "Fréquentation" : "Volume"}
+                      </p>
+                      <p className="text-sm font-bold text-blue-800">
+                        {(atm as any).monthly_volume
+                          ? `${(atm as any).monthly_volume}/mois`
+                          : (atm as any).dailyTransactions
+                          ? `${(atm as any).dailyTransactions}/jour`
+                          : (atm as any).footTraffic
+                          ? `${(atm as any).footTraffic}/jour`
+                          : "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {(atm as any).uptime && (
+                  <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg">
+                    <Activity className="w-4 h-4 text-green-600" />
+                    <div>
+                      <p className="text-xs text-green-600 font-medium">Uptime</p>
+                      <p className="text-sm font-bold text-green-800">{(atm as any).uptime}</p>
+                    </div>
+                  </div>
+                )}
+
+                {(atm as any).roi && (
+                  <div className="flex items-center gap-2 p-2 bg-purple-50 rounded-lg">
+                    <Banknote className="w-4 h-4 text-purple-600" />
+                    <div>
+                      <p className="text-xs text-purple-600 font-medium">ROI</p>
+                      <p className="text-sm font-bold text-purple-800">{(atm as any).roi.toFixed(1)}%</p>
+                    </div>
+                  </div>
+                )}
+
+                {(atm as any).marketShare && (
+                  <div className="flex items-center gap-2 p-2 bg-indigo-50 rounded-lg">
+                    <Users className="w-4 h-4 text-indigo-600" />
+                    <div>
+                      <p className="text-xs text-indigo-600 font-medium">Part marché</p>
+                      <p className="text-sm font-bold text-indigo-800">{(atm as any).marketShare}%</p>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
-            {atm.uptime && (
-              <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg">
-                <Activity className="w-4 h-4 text-green-600" />
-                <div>
-                  <p className="text-xs text-green-600 font-medium">Uptime</p>
-                  <p className="text-sm font-bold text-green-800">{atm.uptime}</p>
-                </div>
-              </div>
-            )}
-
-            {atm.roi && (
-              <div className="flex items-center gap-2 p-2 bg-purple-50 rounded-lg">
-                <Banknote className="w-4 h-4 text-purple-600" />
-                <div>
-                  <p className="text-xs text-purple-600 font-medium">ROI</p>
-                  <p className="text-sm font-bold text-purple-800">{atm.roi.toFixed(1)}%</p>
-                </div>
-              </div>
-            )}
-
-            {atm.marketShare && (
-              <div className="flex items-center gap-2 p-2 bg-indigo-50 rounded-lg">
-                <Users className="w-4 h-4 text-indigo-600" />
-                <div>
-                  <p className="text-xs text-indigo-600 font-medium">Part marché</p>
-                  <p className="text-sm font-bold text-indigo-800">{atm.marketShare}%</p>
+            {isPopulation && (
+              <div className="col-span-2 p-2 bg-amber-50 rounded-lg">
+                <div className="text-xs text-amber-700 font-medium">Densité de population</div>
+                <div className="text-sm font-bold text-amber-900">
+                  {(Number(p?.densite_norm || 0) * 100).toFixed(1)} %
+                  {typeof p?.densite === "number" && (
+                    <span className="ml-2 font-normal">
+                      ({p.densite.toLocaleString("fr-FR")} hab/km²)
+                    </span>
+                  )}
                 </div>
               </div>
             )}
           </div>
 
           {/* Status Indicators */}
-          <div className="space-y-2 mb-3">
-            {atm.cashLevel && (
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-600 flex items-center gap-1">
-                  <Banknote className="w-3 h-3" />
-                  Liquidité:
-                </span>
-                <Badge variant="outline" className={`text-xs ${getStatusColor(atm.cashLevel)}`}>
-                  {atm.cashLevel}
-                </Badge>
-              </div>
-            )}
+          {!isPopulation && (
+            <div className="space-y-2 mb-3">
+              {(atm as any).cashLevel && (
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-600 flex items-center gap-1">
+                    <Banknote className="w-3 h-3" />
+                    Liquidité:
+                  </span>
+                  <Badge variant="outline" className={`text-xs ${getStatusColor((atm as any).cashLevel)}`}>
+                    {(atm as any).cashLevel}
+                  </Badge>
+                </div>
+              )}
 
-            {atm.networkStatus && (
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-600 flex items-center gap-1">
-                  <Wifi className="w-3 h-3" />
-                  Réseau:
-                </span>
-                <Badge variant="outline" className={`text-xs ${getStatusColor(atm.networkStatus)}`}>
-                  {atm.networkStatus}
-                </Badge>
-              </div>
-            )}
-          </div>
+              {(atm as any).networkStatus && (
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-600 flex items-center gap-1">
+                    <Wifi className="w-3 h-3" />
+                    Réseau:
+                  </span>
+                  <Badge variant="outline" className={`text-xs ${getStatusColor((atm as any).networkStatus)}`}>
+                    {(atm as any).networkStatus}
+                  </Badge>
+                </div>
+              )}
+            </div>
+          )}
 
-          {atm.services && atm.services.length > 0 && (
+          {/* Services */}
+          {!isPopulation && (atm as any).services && (atm as any).services.length > 0 && (
             <div className="mb-3">
               <p className="text-xs text-gray-600 mb-1">Services:</p>
               <div className="flex flex-wrap gap-1">
-                {atm.services.map((service: string) => (
+                {(atm as any).services.map((service: string) => (
                   <Badge key={service} variant="outline" className="text-xs bg-blue-50 text-blue-700">
                     {service}
                   </Badge>
@@ -245,27 +281,29 @@ export default function ATMHoverCard({ atm, position, visible }: ATMHoverCardPro
           )}
 
           {/* Location Information */}
-          {(atm.address || atm.branch_location) && (
+          {!isPopulation && ((atm as any).address || (atm as any).branch_location) && (
             <div className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg mb-3">
               <MapPin className="w-3 h-3 text-gray-500 mt-0.5 flex-shrink-0" />
               <div>
-                <p className="text-xs text-gray-700 leading-relaxed">{atm.branch_location || atm.address}</p>
-                {atm.branch_location && atm.address && (
-                  <p className="text-xs text-gray-500 mt-1">{atm.address}</p>
+                <p className="text-xs text-gray-700 leading-relaxed">
+                  {(atm as any).branch_location || (atm as any).address}
+                </p>
+                {(atm as any).branch_location && (atm as any).address && (
+                  <p className="text-xs text-gray-500 mt-1">{(atm as any).address}</p>
                 )}
               </div>
             </div>
           )}
 
           {/* Last Maintenance */}
-          {atm.lastMaintenance && (
+          {!isPopulation && (atm as any).lastMaintenance && (
             <div className="flex justify-between items-center text-xs text-gray-600 border-t pt-2">
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />
                 Maintenance:
               </span>
               <span className="font-medium">
-                {new Date(atm.lastMaintenance).toLocaleDateString("fr-FR")}
+                {new Date((atm as any).lastMaintenance).toLocaleDateString("fr-FR")}
               </span>
             </div>
           )}
