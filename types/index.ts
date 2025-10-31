@@ -15,6 +15,13 @@ export type RawATM = {
   installation_type?: string;
   services?: string[] | null;
   branch_location?: string;
+  type?: ATMType;
+  performance?: number;
+  uptime?: string;
+  roi?: number;
+  cashLevel?: string;
+  lastMaintenance?: string;
+  address?: string;
 };
 
 export type ATM = RawATM & {
@@ -28,18 +35,41 @@ export type ATM = RawATM & {
 
 // === GARDER CETTE VERSION-LA ===
 export type Competitor = {
-  id: string;
-  bank_name: string | null;
+  id: string | number;
   latitude: number;
   longitude: number;
+  bank_name?: string | null;
+  name?: string | null;
+  lat?: number;
+  lng?: number;
   commune?: string | null;
   commune_norm?: string | null;
-  nb_atm: number;
+  nb_atm?: number;
+  type?: string;
+  category?: string;
+  marketShare?: number;
+  services?: string[];
+  city?: string;
 };
 
 export type CompetitorListResponse = {
   competitors: Competitor[];
   total_count: number;
+};
+
+export type POI = {
+  id: number | string;
+  lat: number;
+  lng: number;
+  latitude?: number;
+  longitude?: number;
+  name: string;
+  type: string;
+  category: string;
+  city?: string | null;
+  footTraffic?: number;
+  importance?: "high" | "medium" | "low" | string;
+  services?: string[];
 };
 
 export type PopulationPoint = {

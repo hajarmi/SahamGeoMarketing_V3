@@ -1,11 +1,18 @@
 import type { Competitor, POI } from "@/types"
 
+type MockCompetitorInput = Omit<Competitor, "latitude" | "longitude"> & {
+  latitude?: number
+  longitude?: number
+  lat: number
+  lng: number
+}
+
 export type MockPOI = POI & {
   city?: string
   importance: "high" | "medium" | "low"
 }
 
-export const MOCK_COMPETITORS: Competitor[] = [
+const MOCK_COMPETITOR_SOURCE: MockCompetitorInput[] = [
   // Casablanca
   {
     id: 1,
@@ -252,6 +259,12 @@ export const MOCK_COMPETITORS: Competitor[] = [
     services: ["ATM", "Agence", "Agriculture"],
   },
 ]
+
+export const MOCK_COMPETITORS: Competitor[] = MOCK_COMPETITOR_SOURCE.map((comp) => ({
+  ...comp,
+  latitude: comp.latitude ?? comp.lat,
+  longitude: comp.longitude ?? comp.lng,
+}))
 
 export const MOCK_POIS: MockPOI[] = [
   // Casablanca
