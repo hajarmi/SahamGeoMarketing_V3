@@ -25,9 +25,17 @@ from .schemas import (ATMData, ATMListResponse, DashboardResponse,
                      PerformanceTrend, PredictionResponse, RegionalAnalysis)
 from .services import ATMService, atm_service
 
+<<<<<<< HEAD
 from .schemas import (CompetitorData, CompetitorListResponse) #ajoute
 from .services import get_population    #ajoute
 from .schemas import PopulationListResponse   #ajoute
+=======
+from schemas import (CompetitorData, CompetitorListResponse) #ajoute
+from services import get_population    #ajoute
+from schemas import PopulationListResponse   #ajoute
+from schemas import POIListResponse  #ajoutee
+from services import get_pois #ajoutte 
+>>>>>>> cc602676c326901616ad1a6a127f59c8016cd484
 
 # Setup structured logging
 setup_logging()
@@ -299,7 +307,20 @@ async def list_population():
         raise HTTPException(status_code=400, detail=f"CSV invalide: {e}")
     except Exception as e:
         logger.error("Erreur /population: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="Erreur interne lors du chargement de la population")    
+        raise HTTPException(status_code=500, detail="Erreur interne lors du chargement de la population")   
+
+@app.get("/pois", response_model=POIListResponse, tags=["Layers"])
+async def list_pois():
+    try:
+        return get_pois()
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"CSV invalide: {e}")
+    except Exception as e:
+        logger.error("Erreur /pois: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Erreur interne lors du chargement des POI")
+
     
 
 @app.on_event("startup")
